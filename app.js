@@ -22,10 +22,33 @@
     return C.defaultData();
   }
   let data = load();
-  function save() {
+
+  /* Tandai waktu ubah tiap jadwal & proyek, supaya sinkron tahu mana yang terbaru. */
+  const seen = new Map();
+  let primed = false;
+  function stampChanges(stamp) {
+    const t = Date.now();
+    for (const [k, list] of [['t', data.tasks], ['p', data.projects]]) {
+      for (const x of list) {
+        const { updatedAt, ...rest } = x;
+        const j = JSON.stringify(rest), key = k + x.id;
+        if (stamp && primed && seen.get(key) !== j) x.updatedAt = t;
+        seen.set(key, j);
+      }
+    }
+    primed = true;
+  }
+  stampChanges(false);
+
+  function persist() {
     try { localStorage.setItem(KEY, JSON.stringify(data)); }
     catch (e) { toast('Gagal menyimpan di perangkat ini.'); }
     updateBadge();
+  }
+  function save() {
+    stampChanges(true);
+    persist();
+    window.dispatchEvent(new CustomEvent('ofa:saved'));
   }
 
   const ui = { tab: 'hari', filter: 'all', sheet: null, week: 0 };
@@ -223,6 +246,29 @@
       </section>`;
   }
 
+  /* ---------- Kartu sinkron HP & laptop ---------- */
+  function syncCard() {
+    const S = window.OfaSync ? window.OfaSync.state : null;
+    let body;
+    if (!S || S.status === 'loading') {
+      body = '<p class="small muted" style="margin:0">Menyiapkan sinkron… Pastikan HP atau laptop tersambung ke internet.</p>';
+    } else if (S.status === 'off') {
+      body = `<p class="small muted" style="margin:0">Masuk dengan akun Google supaya jadwal di HP dan laptop selalu sama. Lakukan di kedua perangkat dengan akun yang sama.</p>
+        <button type="button" class="btn" data-act="sync-login">Masuk dengan Google</button>`;
+    } else {
+      const u = S.user || {};
+      const when = S.lastSync ? C.fmtTime(C.hm(new Date(S.lastSync))) : '';
+      const line = S.status === 'syncing' ? 'Menyambungkan…' : S.error ? S.error : `Tersinkron${when ? ` · terakhir ${when}` : ''}`;
+      body = `<div class="sync-row">
+          <span class="sync-dot${S.error ? ' warn' : ''}" aria-hidden="true"></span>
+          <div class="grow"><p class="card-title">${esc(u.name || 'Akun Google')}</p><p class="small muted" style="margin:2px 0 0">${esc(u.email || '')}</p></div>
+          <button type="button" class="mini" data-act="sync-logout">Keluar</button>
+        </div>
+        <p class="small${S.error ? ' warn-text' : ' muted'}" style="margin:0">${esc(line)}</p>`;
+    }
+    return `<section class="card" aria-label="Sinkron HP dan laptop"><p class="card-title">Sinkron HP &amp; laptop</p>${body}</section>`;
+  }
+
   /* ---------- Layar: Proyek & pengaturan ---------- */
   function viewProjects() {
     const perm = 'Notification' in window ? Notification.permission : 'unsupported';
@@ -230,6 +276,7 @@
     const moods = [['senang', 'Senang'], ['panik', 'Panik kecil'], ['tidur', 'Tidur santai'], ['ngambek', 'Ngambek'], ['sedih', 'Sedih'], ['marah', 'Marah']];
     return `
       <header class="top"><div><p class="eyebrow">Atur sumber dan pengingat tiap proyek</p><h1>Proyek</h1></div></header>
+      ${syncCard()}
       ${data.projects.map((p) => { const c = pal(p); const muted = isMuted(p); return `
         <section class="card proj">
           <div class="proj-head">
@@ -253,7 +300,7 @@
 
       <h2>Cadangan data</h2>
       <section class="card settings">
-        <p class="small muted" style="margin:0">Semua jadwal tersimpan di perangkat ini saja. Simpan cadangan secara berkala, terutama sebelum ganti HP atau menghapus data browser.</p>
+        <p class="small muted" style="margin:0">Kalau sudah masuk dengan Google, jadwal otomatis tersimpan online. Cadangan berkas tetap berguna sebagai simpanan tambahan.</p>
         <div class="btn-row">
           <button type="button" class="btn ghost" data-act="export">Simpan cadangan</button>
           <label class="btn ghost" for="import-file">Pulihkan</label>
@@ -310,8 +357,6 @@
           <div class="field"><label for="f-l3">Pengumuman (boleh kosong)</label><input id="f-l3" type="date" class="input" name="l3"></div>
           <div class="tip">${C.ofaSVG('senang', 44)}<p>Malas mengetik? Salin tanggal dari poster pakai Google Lens atau Teks Langsung, lalu isi di sini.</p></div>
         </div>
-        ${t && t.dariLei ? `<p class="small muted">Jadwal ini mengikuti lomba di <a href="${esc(t.link || LEI_URL)}" target="_blank" rel="noopener">Lei Stuff</a>. Kalau tanggal atau status lombanya diubah di Lei Stuff, jadwal ini ikut berubah.</p>` : ''}
-        ${t && t.dariNiras ? `<p class="small muted">Jadwal ini mengikuti tenggat pekerjaan di <a href="${esc(t.link || NIRAS_URL)}" target="_blank" rel="noopener">Niras</a>. Kalau tenggatnya diubah di Niras, jadwal ini ikut berubah.</p>` : ''}
         <div class="field"><label for="f-note">Catatan (boleh kosong)</label><textarea id="f-note" class="input" name="note" rows="2" maxlength="1000">${esc(v.note || '')}</textarea></div>
         <div class="field"><label for="f-link">Tautan (boleh kosong)</label><input id="f-link" type="url" class="input" name="link" value="${esc(v.link || '')}" placeholder="https://"></div>
         <p class="small muted" id="rem-info">${esc(reminderText(p ? p.reminders : []))}.</p>
@@ -390,7 +435,7 @@
 
   function resetSheet() {
     return sheetWrap('Hapus semua data?', `
-      <div class="summary-top">${C.ofaSVG('sedih', 96)}<p class="muted center">Semua jadwal dan proyek di perangkat ini akan terhapus dan tidak bisa dikembalikan. Simpan cadangan dulu kalau ragu.</p></div>
+      <div class="summary-top">${C.ofaSVG('sedih', 96)}<p class="muted center">Semua jadwal dan proyek akan terhapus${window.OfaSync && window.OfaSync.state.status === 'on' ? ', termasuk di semua perangkat yang tersinkron,' : ''} dan tidak bisa dikembalikan. Simpan cadangan dulu kalau ragu.</p></div>
       <button type="button" class="btn danger" data-act="reset-yes">Ya, hapus semuanya</button>
       <button type="button" class="btn ghost" data-act="close">Batal</button>`);
   }
@@ -408,17 +453,27 @@
 
   /* ---------- Render ---------- */
   const TABS = [['hari', 'Hari ini', 'sun'], ['kalender', 'Kalender', 'cal'], ['rapor', 'Rapor', 'star'], ['proyek', 'Proyek', 'folder']];
-  function render() {
+  function renderBase() {
     const views = { hari: viewToday, kalender: viewCalendar, rapor: viewReport, proyek: viewProjects };
     const scroll = window.scrollY;
+    // jaga isi kolom catat cepat & pengaturan yang sedang diketik
+    const active = document.activeElement;
+    const keepId = active && active.id && /INPUT|TEXTAREA/.test(active.tagName) && $('#app').contains(active) ? active.id : null;
+    const keepVal = keepId ? active.value : null;
     $('#app').innerHTML = `
       <main class="main" id="main">${views[ui.tab]()}</main>
       ${ui.tab === 'hari' || ui.tab === 'kalender' ? `<button type="button" class="fab" data-act="new" aria-label="Tambah jadwal">${icon('plus', 28, 2.5)}</button>` : ''}
       <nav class="nav" aria-label="Navigasi utama">${TABS.map(([id, label, ic]) => `<button type="button" data-act="tab" data-id="${id}" ${ui.tab === id ? 'aria-current="page"' : ''}><span>${icon(ic)}</span>${label}</button>`).join('')}</nav>`;
-    $('#sheet-root').innerHTML = renderSheet();
-    document.body.classList.toggle('locked', !!ui.sheet);
+    if (keepId) { const el = document.getElementById(keepId); if (el) { el.value = keepVal; el.focus(); } }
     window.scrollTo(0, scroll);
   }
+  function render() {
+    renderBase();
+    $('#sheet-root').innerHTML = renderSheet();
+    document.body.classList.toggle('locked', !!ui.sheet);
+  }
+  /** Segarkan tampilan tanpa menutup formulir yang sedang dibuka. */
+  function refresh() { if (ui.sheet && ui.sheet.type !== 'summary') renderBase(); else render(); }
 
   function openSheet(s) {
     ui.sheet = s;
@@ -571,100 +626,7 @@
 
   /* ---------- Detak: pengingat, ringkasan, Ofa ---------- */
   let lastMinute = '';
-  /* ---------- Jembatan dengan Niras ----------
-     Niras dan OfA sama-sama tinggal di sitilutfiyah821.github.io, jadi berbagi penyimpanan HP.
-     Niras menulis tenggat pekerjaannya ke 'niras-ke-ofa-v1'; OfA hanya membacanya, lalu
-     membuat/memperbarui jadwal di proyek Niras. Tiap app hanya menulis kuncinya sendiri. */
-  const NIRAS_KEY = 'niras-ke-ofa-v1';
-  const NIRAS_URL = 'https://sitilutfiyah821.github.io/niras/';
-  function sinkronNiras() {
-    let j = null;
-    try { j = JSON.parse(localStorage.getItem(NIRAS_KEY) || 'null'); } catch (e) { return false; }
-    if (!j || !Array.isArray(j.tenggat)) return false;
-    let ubah = false;
-    // centang tahapan di Niras → jadwal OfA ikut selesai/batal selesai
-    data.nirasCentang = data.nirasCentang || {};
-    Object.entries(j.centang || {}).forEach(([id, c]) => {
-      if (!c || !c.waktu || (data.nirasCentang[id] || '') >= c.waktu) return;
-      const t = data.tasks.find((x) => x.id === id);
-      if (t && !!t.done !== !!c.done) t.done = !!c.done;
-      data.nirasCentang[id] = c.waktu; ubah = true;
-    });
-    if (j.tenggat.length && !data.projects.some((p) => p.id === 'niras')) {
-      data.projects.unshift(C.defaultData().projects.find((p) => p.id === 'niras')); ubah = true;
-    }
-    const sisa = new Map(data.tasks.filter((t) => t.dariNiras).map((t) => [t.dariNiras, t]));
-    j.tenggat.forEach((n) => {
-      let t = sisa.get(n.id);
-      if (t) sisa.delete(n.id);
-      else if (n.gantikan) {
-        // pekerjaan ini dibuat dari jadwal OfA: jadwal lamanya dipakai, tidak digandakan
-        t = data.tasks.find((x) => x.id === n.gantikan && !x.dariNiras);
-        if (t) { t.dariNiras = n.id; t.nirasVersi = null; }
-      }
-      if (!t) {
-        if (n.selesai) return;
-        addTask({ title: n.judul, date: n.tanggal, time: null, projectId: 'niras', note: n.catatan || '', link: `${NIRAS_URL}#kerja/${n.id}`, dariNiras: n.id, nirasVersi: n.versi });
-        ubah = true; return;
-      }
-      if (t.nirasVersi !== n.versi) {
-        Object.assign(t, { title: n.judul, date: n.tanggal, note: n.catatan || '', link: `${NIRAS_URL}#kerja/${n.id}`, projectId: 'niras', done: !!n.selesai, skipped: false, nirasVersi: n.versi });
-        ubah = true;
-      }
-    });
-    // pekerjaan yang dihapus atau dibatalkan di Niras: jadwal yang belum selesai ikut dihapus
-    sisa.forEach((t) => { if (!t.done) { data.tasks = data.tasks.filter((x) => x !== t); ubah = true; } });
-    return ubah;
-  }
-  /* ---------- Jembatan dengan Lei Stuff ----------
-     Lei Stuff (sitilutfiyah821.github.io/lei-stuff) menulis jadwal lombanya ke 'leistuff-ke-ofa-v1':
-     batas pendaftaran, batas kirim karya, dan pengumuman. OfA hanya membacanya, lalu membuat/memperbarui
-     jadwal di proyek lomba (Lei Stuff). Jadwal yang dibuat di OfA lalu dijadikan lomba di Lei Stuff
-     dikirim balik dengan 'gantikan', supaya tidak muncul dua kali. */
-  const LEI_KEY = 'leistuff-ke-ofa-v1';
-  const LEI_URL = 'https://sitilutfiyah821.github.io/lei-stuff/';
-  function sinkronLei() {
-    let j = null;
-    try { j = JSON.parse(localStorage.getItem(LEI_KEY) || 'null'); } catch (e) { return false; }
-    if (!j || !Array.isArray(j.jadwal)) return false;
-    let ubah = false;
-    let proyek = data.projects.find((p) => p.id === 'lei-stuff') || data.projects.find((p) => p.kind === 'lomba');
-    if (!proyek && j.jadwal.length) {
-      proyek = C.defaultData().projects.find((p) => p.id === 'lei-stuff');
-      data.projects.push(proyek); ubah = true;
-    }
-    const sisa = new Map(data.tasks.filter((t) => t.dariLei).map((t) => [t.dariLei, t]));
-    j.jadwal.forEach((n) => {
-      let t = sisa.get(n.id);
-      if (t) sisa.delete(n.id);
-      else if (n.gantikan) {
-        t = data.tasks.find((x) => x.id === n.gantikan && !x.dariLei && !x.dariNiras);
-        if (t) { t.dariLei = n.id; t.leiVersi = null; }
-      }
-      const link = n.link || `${LEI_URL}#lomba`;
-      if (!t) {
-        if (n.selesai) return;
-        addTask({ title: n.judul, date: n.tanggal, time: null, projectId: proyek.id, note: n.catatan || '', link, dariLei: n.id, leiVersi: n.versi });
-        ubah = true; return;
-      }
-      if (t.leiVersi !== n.versi) {
-        if (!t.done && t.date && n.tanggal > t.date) t.postponed = (t.postponed || 0) + 1;
-        Object.assign(t, { title: n.judul, date: n.tanggal, note: n.catatan || '', link, projectId: t.projectId && proj(t.projectId) ? t.projectId : proyek.id, done: !!n.selesai, skipped: false, leiVersi: n.versi });
-        ubah = true;
-      }
-    });
-    // lomba atau tanggal yang dihapus di Lei Stuff: jadwal yang belum selesai ikut dihapus
-    sisa.forEach((t) => { if (!t.done) { data.tasks = data.tasks.filter((x) => x !== t); ubah = true; } });
-    return ubah;
-  }
-  window.addEventListener('storage', (e) => {
-    if (e.key === NIRAS_KEY && sinkronNiras()) { save(); render(); }
-    if (e.key === LEI_KEY && sinkronLei()) { save(); render(); }
-  });
-
   function tick() {
-    const a = sinkronNiras(), b = sinkronLei();
-    if (a || b) { save(); render(); }
     const n = now();
     const due = C.dueReminders(data, n);
     if (due.length) {
@@ -724,6 +686,8 @@
       }
       case 'moods': data.profile.moodsOn = data.profile.moodsOn === false; save(); render(); break;
       case 'notif': enableNotif(); break;
+      case 'sync-login': if (window.OfaSync) window.OfaSync.signIn(); else toast('Sinkron belum siap. Periksa koneksi internet.'); break;
+      case 'sync-logout': if (window.OfaSync) window.OfaSync.signOut(); break;
       case 'edit-project': openSheet({ type: 'project', id }); break;
       case 'new-project': openSheet({ type: 'project' }); break;
       case 'export': exportData(); break;
@@ -791,6 +755,20 @@
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ui.sheet) closeSheet(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tick(); });
+
+  /* ---------- Jembatan untuk sinkron (sync.js) ---------- */
+  window.OfaApp = {
+    getData: () => data,
+    applyRemote(fn) {
+      fn(data);
+      data = migrate(data);
+      stampChanges(false);
+      persist();
+      refresh();
+    },
+    toast
+  };
+  window.addEventListener('ofa:sync-status', () => { if (ui.tab === 'proyek') refresh(); });
 
   /* ---------- Mulai ---------- */
   function handleLaunchParams() {

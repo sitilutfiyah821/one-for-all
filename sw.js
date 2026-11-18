@@ -1,6 +1,6 @@
 /* One for All — service worker: bisa dibuka tanpa internet, dan membuka app saat notifikasi diketuk.
    Naikkan angka VERSI setiap kali file app diubah supaya HP mengambil versi terbaru. */
-const VERSI = 'ofa-v3';
+const VERSI = 'ofa-v2';
 const SHELL = [
   './', 'index.html', 'core.js', 'app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png', 'icons/badge-96.png'
@@ -37,8 +37,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // File app dan font: cache dulu, lalu perbarui di latar
-  if (url.origin === self.location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
+  // File app, font, dan pustaka Firebase: cache dulu, lalu perbarui di latar
+  const isFirebaseLib = url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/');
+  if (url.origin === self.location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname) || isFirebaseLib) {
     event.respondWith(
       caches.match(req).then((cached) => {
         const fresh = fetch(req).then((res) => {

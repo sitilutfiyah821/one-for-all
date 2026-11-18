@@ -33,20 +33,26 @@ Unggah file yang berubah ke repository yang sama, lalu buka `sw.js` dan ganti `c
 
 Kata yang dikenali: hari ini, besok, lusa, nama hari (+ "depan"), tanggal (21/11 atau 5 desember), jam (jam 3 sore, 15.30), pagi/siang/sore/malam, dan abis subuh/zuhur/ashar/magrib/isya. Proyek ditebak dari kata kunci (bisa diubah di menu Proyek) atau dipilih dengan tagar `#niras`, `#leistuff`, `#nirastudio`.
 
+## Sinkron HP & laptop
+
+Buka **Proyek → Sinkron HP & laptop → Masuk dengan Google** di HP dan di laptop, pakai akun Google yang sama. Setelah itu jadwal, centang, dan pengaturan otomatis sama di kedua perangkat. Kalau sedang offline, perubahan disimpan dulu dan dikirim begitu online lagi.
+
+Data disimpan di Firebase (proyek `one-for-all-2116f`, server Jakarta). Aturan keamanannya hanya mengizinkan akunmu sendiri membaca dan menulis datamu. Konfigurasi Firebase ada di `firebase-config.js`; isinya memang boleh publik, karena yang menjaga data adalah login dan aturan keamanan tadi.
+
 ## Yang perlu diketahui di versi coba
 
-- **Data tersimpan di perangkat ini saja.** HP dan laptop belum tersinkron. Simpan cadangan secara berkala lewat **Proyek → Cadangan data**.
+- **Sebelum masuk dengan Google, data hanya ada di perangkat itu.** Simpan cadangan secara berkala lewat **Proyek → Cadangan data**.
 - **Pengingat muncul selama app terbuka atau masih berjalan di latar.** Untuk jadwal penting, buka jadwalnya lalu tekan **Google Calendar**, supaya Google Calendar ikut mengingatkan meski app tertutup.
 - **Bagikan dari Instagram** (postingan lomba langsung jadi formulir Lei Stuff) bekerja di Android setelah app terpasang. Di iPhone, isi jadwalnya lewat tombol +.
-- **Tersambung dengan Niras** (sitilutfiyah821.github.io/niras) di perangkat yang sama: tenggat pekerjaan di Niras otomatis jadi jadwal di proyek Niras, dan jadwal OfA di proyek Niras muncul di kotak "Dari Ofa" di Beranda Niras. Berlaku selama keduanya dibuka di browser yang sama (Chrome Android).
-- **Tersambung dengan Lei Stuff** (sitilutfiyah821.github.io/lei-stuff) di perangkat yang sama: tiap lomba di Lei Stuff otomatis jadi jadwal di proyek Lei Stuff (batas pendaftaran, batas kirim karya, dan pengumuman). Kalau tanggal atau status lomba diubah di Lei Stuff, jadwalnya ikut berubah; lomba yang dihapus ikut hilang. Lomba yang kamu catat di OfA muncul di kotak "Dari Ofa" di halaman Lomba Lei Stuff, siap dijadikan lomba tanpa menggandakan jadwal.
-- Belum ada di versi ini: sinkron antar-perangkat, sambungan otomatis ke Google Calendar, chat dengan Claude, dan WhatsApp. Semua sudah direncanakan di dokumen konsep.
+- Belum ada di versi ini: sambungan otomatis ke Google Calendar, chat dengan Claude, dan WhatsApp. Semua sudah direncanakan di dokumen konsep.
 
 ## Isi folder
 
 - `index.html` — tampilan dan gaya app
 - `core.js` — logika: catat cepat, suasana hati Ofa, rapor, pengingat
 - `app.js` — layar dan tombol
+- `sync.js` — login Google dan sinkron lewat Firebase
+- `firebase-config.js` — alamat proyek Firebase
 - `sw.js` — supaya app bisa dibuka tanpa internet dan notifikasi bisa diketuk
 - `manifest.webmanifest` — nama, ikon, pintasan, dan fitur bagikan
 - `icons/` — ikon Ofa
