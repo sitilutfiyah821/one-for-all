@@ -38,6 +38,7 @@ Kata yang dikenali: hari ini, besok, lusa, nama hari (+ "depan"), tanggal (21/11
 - **Data tersimpan di perangkat ini saja.** HP dan laptop belum tersinkron. Simpan cadangan secara berkala lewat **Proyek → Cadangan data**.
 - **Pengingat muncul selama app terbuka atau masih berjalan di latar.** Untuk jadwal penting, buka jadwalnya lalu tekan **Google Calendar**, supaya Google Calendar ikut mengingatkan meski app tertutup.
 - **Bagikan dari Instagram** (postingan lomba langsung jadi formulir Lei Stuff) bekerja di Android setelah app terpasang. Di iPhone, isi jadwalnya lewat tombol +.
+- **Tersambung dengan Niras** (sitilutfiyah821.github.io/niras) di perangkat yang sama: tenggat pekerjaan di Niras otomatis jadi jadwal di proyek Niras, dan jadwal OfA di proyek Niras muncul di kotak "Dari Ofa" di Beranda Niras. Berlaku selama keduanya dibuka di browser yang sama (Chrome Android).
 - Belum ada di versi ini: sinkron antar-perangkat, sambungan otomatis ke Google Calendar, chat dengan Claude, dan WhatsApp. Semua sudah direncanakan di dokumen konsep.
 
 ## Isi folder

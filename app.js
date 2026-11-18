@@ -310,6 +310,7 @@
           <div class="field"><label for="f-l3">Pengumuman (boleh kosong)</label><input id="f-l3" type="date" class="input" name="l3"></div>
           <div class="tip">${C.ofaSVG('senang', 44)}<p>Malas mengetik? Salin tanggal dari poster pakai Google Lens atau Teks Langsung, lalu isi di sini.</p></div>
         </div>
+        ${t && t.dariNiras ? `<p class="small muted">Jadwal ini mengikuti tenggat pekerjaan di <a href="${esc(t.link || NIRAS_URL)}" target="_blank" rel="noopener">Niras</a>. Kalau tenggatnya diubah di Niras, jadwal ini ikut berubah.</p>` : ''}
         <div class="field"><label for="f-note">Catatan (boleh kosong)</label><textarea id="f-note" class="input" name="note" rows="2" maxlength="1000">${esc(v.note || '')}</textarea></div>
         <div class="field"><label for="f-link">Tautan (boleh kosong)</label><input id="f-link" type="url" class="input" name="link" value="${esc(v.link || '')}" placeholder="https://"></div>
         <p class="small muted" id="rem-info">${esc(reminderText(p ? p.reminders : []))}.</p>
@@ -569,7 +570,57 @@
 
   /* ---------- Detak: pengingat, ringkasan, Ofa ---------- */
   let lastMinute = '';
+  /* ---------- Jembatan dengan Niras ----------
+     Niras dan OfA sama-sama tinggal di sitilutfiyah821.github.io, jadi berbagi penyimpanan HP.
+     Niras menulis tenggat pekerjaannya ke 'niras-ke-ofa-v1'; OfA hanya membacanya, lalu
+     membuat/memperbarui jadwal di proyek Niras. Tiap app hanya menulis kuncinya sendiri. */
+  const NIRAS_KEY = 'niras-ke-ofa-v1';
+  const NIRAS_URL = 'https://sitilutfiyah821.github.io/niras/';
+  function sinkronNiras() {
+    let j = null;
+    try { j = JSON.parse(localStorage.getItem(NIRAS_KEY) || 'null'); } catch (e) { return false; }
+    if (!j || !Array.isArray(j.tenggat)) return false;
+    let ubah = false;
+    // centang tahapan di Niras → jadwal OfA ikut selesai/batal selesai
+    data.nirasCentang = data.nirasCentang || {};
+    Object.entries(j.centang || {}).forEach(([id, c]) => {
+      if (!c || !c.waktu || (data.nirasCentang[id] || '') >= c.waktu) return;
+      const t = data.tasks.find((x) => x.id === id);
+      if (t && !!t.done !== !!c.done) t.done = !!c.done;
+      data.nirasCentang[id] = c.waktu; ubah = true;
+    });
+    if (j.tenggat.length && !data.projects.some((p) => p.id === 'niras')) {
+      data.projects.unshift(C.defaultData().projects.find((p) => p.id === 'niras')); ubah = true;
+    }
+    const sisa = new Map(data.tasks.filter((t) => t.dariNiras).map((t) => [t.dariNiras, t]));
+    j.tenggat.forEach((n) => {
+      let t = sisa.get(n.id);
+      if (t) sisa.delete(n.id);
+      else if (n.gantikan) {
+        // pekerjaan ini dibuat dari jadwal OfA: jadwal lamanya dipakai, tidak digandakan
+        t = data.tasks.find((x) => x.id === n.gantikan && !x.dariNiras);
+        if (t) { t.dariNiras = n.id; t.nirasVersi = null; }
+      }
+      if (!t) {
+        if (n.selesai) return;
+        addTask({ title: n.judul, date: n.tanggal, time: null, projectId: 'niras', note: n.catatan || '', link: `${NIRAS_URL}#kerja/${n.id}`, dariNiras: n.id, nirasVersi: n.versi });
+        ubah = true; return;
+      }
+      if (t.nirasVersi !== n.versi) {
+        Object.assign(t, { title: n.judul, date: n.tanggal, note: n.catatan || '', link: `${NIRAS_URL}#kerja/${n.id}`, projectId: 'niras', done: !!n.selesai, skipped: false, nirasVersi: n.versi });
+        ubah = true;
+      }
+    });
+    // pekerjaan yang dihapus atau dibatalkan di Niras: jadwal yang belum selesai ikut dihapus
+    sisa.forEach((t) => { if (!t.done) { data.tasks = data.tasks.filter((x) => x !== t); ubah = true; } });
+    return ubah;
+  }
+  window.addEventListener('storage', (e) => {
+    if (e.key === NIRAS_KEY && sinkronNiras()) { save(); render(); }
+  });
+
   function tick() {
+    if (sinkronNiras()) { save(); render(); }
     const n = now();
     const due = C.dueReminders(data, n);
     if (due.length) {
