@@ -1,0 +1,28 @@
+{
+  "id": "./",
+  "name": "One for All",
+  "short_name": "OfA",
+  "description": "Pengingat jadwal harian untuk semua proyek, ditemani Ofa si kapibara.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF6E9",
+  "theme_color": "#FFF6E9",
+  "categories": ["productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Tambah jadwal", "short_name": "Tambah", "url": "./?aksi=tambah", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Ringkasan hari ini", "short_name": "Ringkasan", "url": "./?aksi=ringkasan", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
+}
