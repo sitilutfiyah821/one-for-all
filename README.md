@@ -39,6 +39,7 @@ Kata yang dikenali: hari ini, besok, lusa, nama hari (+ "depan"), tanggal (21/11
 - **Pengingat muncul selama app terbuka atau masih berjalan di latar.** Untuk jadwal penting, buka jadwalnya lalu tekan **Google Calendar**, supaya Google Calendar ikut mengingatkan meski app tertutup.
 - **Bagikan dari Instagram** (postingan lomba langsung jadi formulir Lei Stuff) bekerja di Android setelah app terpasang. Di iPhone, isi jadwalnya lewat tombol +.
 - **Tersambung dengan Niras** (sitilutfiyah821.github.io/niras) di perangkat yang sama: tenggat pekerjaan di Niras otomatis jadi jadwal di proyek Niras, dan jadwal OfA di proyek Niras muncul di kotak "Dari Ofa" di Beranda Niras. Berlaku selama keduanya dibuka di browser yang sama (Chrome Android).
+- **Tersambung dengan Lei Stuff** (sitilutfiyah821.github.io/lei-stuff) di perangkat yang sama: tiap lomba di Lei Stuff otomatis jadi jadwal di proyek Lei Stuff (batas pendaftaran, batas kirim karya, dan pengumuman). Kalau tanggal atau status lomba diubah di Lei Stuff, jadwalnya ikut berubah; lomba yang dihapus ikut hilang. Lomba yang kamu catat di OfA muncul di kotak "Dari Ofa" di halaman Lomba Lei Stuff, siap dijadikan lomba tanpa menggandakan jadwal.
 - Belum ada di versi ini: sinkron antar-perangkat, sambungan otomatis ke Google Calendar, chat dengan Claude, dan WhatsApp. Semua sudah direncanakan di dokumen konsep.
 
 ## Isi folder

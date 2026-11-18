@@ -310,6 +310,7 @@
           <div class="field"><label for="f-l3">Pengumuman (boleh kosong)</label><input id="f-l3" type="date" class="input" name="l3"></div>
           <div class="tip">${C.ofaSVG('senang', 44)}<p>Malas mengetik? Salin tanggal dari poster pakai Google Lens atau Teks Langsung, lalu isi di sini.</p></div>
         </div>
+        ${t && t.dariLei ? `<p class="small muted">Jadwal ini mengikuti lomba di <a href="${esc(t.link || LEI_URL)}" target="_blank" rel="noopener">Lei Stuff</a>. Kalau tanggal atau status lombanya diubah di Lei Stuff, jadwal ini ikut berubah.</p>` : ''}
         ${t && t.dariNiras ? `<p class="small muted">Jadwal ini mengikuti tenggat pekerjaan di <a href="${esc(t.link || NIRAS_URL)}" target="_blank" rel="noopener">Niras</a>. Kalau tenggatnya diubah di Niras, jadwal ini ikut berubah.</p>` : ''}
         <div class="field"><label for="f-note">Catatan (boleh kosong)</label><textarea id="f-note" class="input" name="note" rows="2" maxlength="1000">${esc(v.note || '')}</textarea></div>
         <div class="field"><label for="f-link">Tautan (boleh kosong)</label><input id="f-link" type="url" class="input" name="link" value="${esc(v.link || '')}" placeholder="https://"></div>
@@ -615,12 +616,55 @@
     sisa.forEach((t) => { if (!t.done) { data.tasks = data.tasks.filter((x) => x !== t); ubah = true; } });
     return ubah;
   }
+  /* ---------- Jembatan dengan Lei Stuff ----------
+     Lei Stuff (sitilutfiyah821.github.io/lei-stuff) menulis jadwal lombanya ke 'leistuff-ke-ofa-v1':
+     batas pendaftaran, batas kirim karya, dan pengumuman. OfA hanya membacanya, lalu membuat/memperbarui
+     jadwal di proyek lomba (Lei Stuff). Jadwal yang dibuat di OfA lalu dijadikan lomba di Lei Stuff
+     dikirim balik dengan 'gantikan', supaya tidak muncul dua kali. */
+  const LEI_KEY = 'leistuff-ke-ofa-v1';
+  const LEI_URL = 'https://sitilutfiyah821.github.io/lei-stuff/';
+  function sinkronLei() {
+    let j = null;
+    try { j = JSON.parse(localStorage.getItem(LEI_KEY) || 'null'); } catch (e) { return false; }
+    if (!j || !Array.isArray(j.jadwal)) return false;
+    let ubah = false;
+    let proyek = data.projects.find((p) => p.id === 'lei-stuff') || data.projects.find((p) => p.kind === 'lomba');
+    if (!proyek && j.jadwal.length) {
+      proyek = C.defaultData().projects.find((p) => p.id === 'lei-stuff');
+      data.projects.push(proyek); ubah = true;
+    }
+    const sisa = new Map(data.tasks.filter((t) => t.dariLei).map((t) => [t.dariLei, t]));
+    j.jadwal.forEach((n) => {
+      let t = sisa.get(n.id);
+      if (t) sisa.delete(n.id);
+      else if (n.gantikan) {
+        t = data.tasks.find((x) => x.id === n.gantikan && !x.dariLei && !x.dariNiras);
+        if (t) { t.dariLei = n.id; t.leiVersi = null; }
+      }
+      const link = n.link || `${LEI_URL}#lomba`;
+      if (!t) {
+        if (n.selesai) return;
+        addTask({ title: n.judul, date: n.tanggal, time: null, projectId: proyek.id, note: n.catatan || '', link, dariLei: n.id, leiVersi: n.versi });
+        ubah = true; return;
+      }
+      if (t.leiVersi !== n.versi) {
+        if (!t.done && t.date && n.tanggal > t.date) t.postponed = (t.postponed || 0) + 1;
+        Object.assign(t, { title: n.judul, date: n.tanggal, note: n.catatan || '', link, projectId: t.projectId && proj(t.projectId) ? t.projectId : proyek.id, done: !!n.selesai, skipped: false, leiVersi: n.versi });
+        ubah = true;
+      }
+    });
+    // lomba atau tanggal yang dihapus di Lei Stuff: jadwal yang belum selesai ikut dihapus
+    sisa.forEach((t) => { if (!t.done) { data.tasks = data.tasks.filter((x) => x !== t); ubah = true; } });
+    return ubah;
+  }
   window.addEventListener('storage', (e) => {
     if (e.key === NIRAS_KEY && sinkronNiras()) { save(); render(); }
+    if (e.key === LEI_KEY && sinkronLei()) { save(); render(); }
   });
 
   function tick() {
-    if (sinkronNiras()) { save(); render(); }
+    const a = sinkronNiras(), b = sinkronLei();
+    if (a || b) { save(); render(); }
     const n = now();
     const due = C.dueReminders(data, n);
     if (due.length) {
