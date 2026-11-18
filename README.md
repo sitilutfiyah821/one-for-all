@@ -33,6 +33,10 @@ Unggah file yang berubah ke repository yang sama, lalu buka `sw.js` dan ganti `c
 
 Kata yang dikenali: hari ini, besok, lusa, nama hari (+ "depan"), tanggal (21/11 atau 5 desember), jam (jam 3 sore, 15.30), pagi/siang/sore/malam, dan abis subuh/zuhur/ashar/magrib/isya. Proyek ditebak dari kata kunci (bisa diubah di menu Proyek) atau dipilih dengan tagar `#niras`, `#leistuff`, `#nirastudio`.
 
+## Tersambung dengan Niras & Lei Stuff
+
+Di perangkat yang sama, OfA membaca tenggat pekerjaan dari Niras dan jadwal lomba dari Lei Stuff lalu menjadikannya jadwal (ikut tersinkron ke perangkat lain lewat login Google). Catatan cepat proyek Niras dibaca Niras: `pesanan baru logo Kopi Senja 1,5jt deadline 25/11` jadi pekerjaan baru, `besok revisi logo Tanaka` jadi tahap Revisi di pekerjaan Tanaka, `Tanaka bayar 500rb` jadi pembayaran. Kata kunci proyek Niras otomatis ditambah nama klien dan jenis pekerjaan dari Niras.
+
 ## Sinkron HP & laptop
 
 Buka **Proyek → Sinkron HP & laptop → Masuk dengan Google** di HP dan di laptop, pakai akun Google yang sama. Setelah itu jadwal, centang, dan pengaturan otomatis sama di kedua perangkat. Kalau sedang offline, perubahan disimpan dulu dan dikirim begitu online lagi.

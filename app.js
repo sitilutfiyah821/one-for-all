@@ -357,6 +357,8 @@
           <div class="field"><label for="f-l3">Pengumuman (boleh kosong)</label><input id="f-l3" type="date" class="input" name="l3"></div>
           <div class="tip">${C.ofaSVG('senang', 44)}<p>Malas mengetik? Salin tanggal dari poster pakai Google Lens atau Teks Langsung, lalu isi di sini.</p></div>
         </div>
+        ${v.dariNiras ? `<p class="small muted">Jadwal ini mengikuti tenggat pekerjaan di <a href="${esc(v.link || NIRAS_URL)}" target="_blank" rel="noopener">Niras</a>. Kalau tenggatnya diubah di Niras, jadwal ini ikut berubah.</p>` : ''}
+        ${v.dariLei ? `<p class="small muted">Jadwal ini mengikuti lomba di <a href="${esc(v.link || LEI_URL)}" target="_blank" rel="noopener">Lei Stuff</a>.</p>` : ''}
         <div class="field"><label for="f-note">Catatan (boleh kosong)</label><textarea id="f-note" class="input" name="note" rows="2" maxlength="1000">${esc(v.note || '')}</textarea></div>
         <div class="field"><label for="f-link">Tautan (boleh kosong)</label><input id="f-link" type="url" class="input" name="link" value="${esc(v.link || '')}" placeholder="https://"></div>
         <p class="small muted" id="rem-info">${esc(reminderText(p ? p.reminders : []))}.</p>
@@ -624,9 +626,140 @@
     } catch (e) { /* tidak didukung */ }
   }
 
+  /* ---------- Jembatan dengan Niras & Lei Stuff ----------
+     Ketiga app tinggal di sitilutfiyah821.github.io, jadi berbagi penyimpanan di perangkat yang sama.
+     Niras menulis ke 'niras-ke-ofa-v1', Lei Stuff ke 'leistuff-ke-ofa-v1'; OfA hanya membaca keduanya
+     lalu membuat/memperbarui jadwal. Jadwal hasil jembatan ikut tersinkron lewat Firebase seperti jadwal biasa.
+     Supaya perangkat lain (yang datanya belum sama) tidak menghapus jadwal, OfA hanya menghapus jadwal
+     jembatan bila (a) app asalnya menyebut jadwal itu dihapus/batal, atau (b) jadwal itu dibuat oleh
+     jembatan di perangkat ini sendiri. */
+  const NIRAS_KEY = 'niras-ke-ofa-v1';
+  const NIRAS_URL = 'https://sitilutfiyah821.github.io/niras/';
+  const LEI_KEY = 'leistuff-ke-ofa-v1';
+  const LEI_URL = 'https://sitilutfiyah821.github.io/lei-stuff/';
+  const PERANGKAT = (() => {
+    try {
+      let id = localStorage.getItem('ofa-perangkat');
+      if (!id) { id = C.uid(); localStorage.setItem('ofa-perangkat', id); }
+      return id;
+    } catch (e) { return 'tanpa-id'; }
+  })();
+  const bacaJembatan = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } };
+
+  // kata kunci proyek Niras ikut nama klien & jenis pekerjaan di Niras (kata kunci buatan Nira tetap dipertahankan)
+  function kataKunciNiras(p, kata) {
+    if (!p || !Array.isArray(kata)) return false;
+    const lama = new Set(p.kataOtomatis || []);
+    const milikNira = (p.keywords || []).filter((k) => !lama.has(k));
+    const dipakaiLain = new Set(data.projects.filter((x) => x !== p).flatMap((x) => x.keywords || []));
+    const otomatis = kata.map((k) => String(k).toLowerCase()).filter((k) => k && !dipakaiLain.has(k) && !milikNira.includes(k));
+    const baru = milikNira.concat(otomatis);
+    if (JSON.stringify(baru) === JSON.stringify(p.keywords || []) && JSON.stringify(otomatis) === JSON.stringify(p.kataOtomatis || [])) return false;
+    p.keywords = baru; p.kataOtomatis = otomatis;
+    return true;
+  }
+
+  function sinkronNiras() {
+    const j = bacaJembatan(NIRAS_KEY);
+    if (!j || !Array.isArray(j.tenggat)) return false;
+    let ubah = false;
+    // centang tahapan di Niras → jadwal OfA ikut selesai/batal selesai
+    data.nirasCentang = data.nirasCentang || {};
+    Object.entries(j.centang || {}).forEach(([id, c]) => {
+      if (!c || !c.waktu || (data.nirasCentang[id] || '') >= c.waktu) return;
+      const t = data.tasks.find((x) => x.id === id);
+      if (t && !!t.done !== !!c.done) t.done = !!c.done;
+      data.nirasCentang[id] = c.waktu; ubah = true;
+    });
+    let p = proj('niras');
+    if (!p && (j.tenggat.length || (j.kataKunci || []).length)) {
+      p = C.defaultData().projects.find((x) => x.id === 'niras');
+      data.projects.unshift(p); ubah = true;
+    }
+    if (kataKunciNiras(p, j.kataKunci)) ubah = true;
+    const sisa = new Map(data.tasks.filter((t) => t.dariNiras).map((t) => [t.dariNiras, t]));
+    j.tenggat.forEach((n) => {
+      let t = sisa.get(n.id);
+      if (t) sisa.delete(n.id);
+      else if (n.gantikan) {
+        // pekerjaan ini dibuat dari jadwal OfA: jadwal lamanya dipakai, tidak digandakan
+        t = data.tasks.find((x) => x.id === n.gantikan && !x.dariNiras);
+        if (t) { t.dariNiras = n.id; t.nirasVersi = null; }
+      }
+      if (!t) {
+        if (n.selesai) return;
+        addTask({ title: n.judul, date: n.tanggal, time: null, projectId: 'niras', note: n.catatan || '', link: `${NIRAS_URL}#kerja/${n.id}`, dariNiras: n.id, nirasVersi: n.versi, asal: PERANGKAT });
+        ubah = true; return;
+      }
+      if (t.nirasVersi !== n.versi) {
+        if (!t.done && t.date && n.tanggal > t.date) t.postponed = (t.postponed || 0) + 1;
+        Object.assign(t, { title: n.judul, date: n.tanggal, note: n.catatan || '', link: `${NIRAS_URL}#kerja/${n.id}`, projectId: 'niras', done: !!n.selesai, skipped: false, nirasVersi: n.versi });
+        ubah = true;
+      }
+    });
+    // pekerjaan yang dihapus atau dibatalkan di Niras: jadwal yang belum selesai ikut dihapus
+    const pergi = new Set([...(j.dihapus || []), ...(j.batal || [])]);
+    sisa.forEach((t, id) => {
+      if (t.done) return;
+      if (pergi.has(id) || (j.v < 2 && t.asal === PERANGKAT) || (t.asal === PERANGKAT && j.tenggat.length)) {
+        data.tasks = data.tasks.filter((x) => x !== t); ubah = true;
+      }
+    });
+    return ubah;
+  }
+
+  function sinkronLei() {
+    const j = bacaJembatan(LEI_KEY);
+    if (!j || !Array.isArray(j.jadwal)) return false;
+    let ubah = false;
+    let proyek = data.projects.find((p) => p.id === 'lei-stuff') || data.projects.find((p) => p.kind === 'lomba');
+    if (!proyek && j.jadwal.length) {
+      proyek = C.defaultData().projects.find((p) => p.id === 'lei-stuff');
+      data.projects.push(proyek); ubah = true;
+    }
+    const sisa = new Map(data.tasks.filter((t) => t.dariLei).map((t) => [t.dariLei, t]));
+    j.jadwal.forEach((n) => {
+      let t = sisa.get(n.id);
+      if (t) sisa.delete(n.id);
+      else if (n.gantikan) {
+        t = data.tasks.find((x) => x.id === n.gantikan && !x.dariLei && !x.dariNiras);
+        if (t) { t.dariLei = n.id; t.leiVersi = null; }
+      }
+      const link = n.link || `${LEI_URL}#lomba`;
+      if (!t) {
+        if (n.selesai) return;
+        addTask({ title: n.judul, date: n.tanggal, time: null, projectId: proyek.id, note: n.catatan || '', link, dariLei: n.id, leiVersi: n.versi, asal: PERANGKAT });
+        ubah = true; return;
+      }
+      if (t.leiVersi !== n.versi) {
+        if (!t.done && t.date && n.tanggal > t.date) t.postponed = (t.postponed || 0) + 1;
+        Object.assign(t, { title: n.judul, date: n.tanggal, note: n.catatan || '', link, projectId: t.projectId && proj(t.projectId) ? t.projectId : proyek.id, done: !!n.selesai, skipped: false, leiVersi: n.versi });
+        ubah = true;
+      }
+    });
+    // lomba yang dihapus di Lei Stuff: hapus jadwal yang belum selesai — hanya yang dibuat dari perangkat ini,
+    // supaya perangkat lain yang belum punya data Lei Stuff tidak ikut menghapus
+    const pergi = new Set(j.dihapus || []);
+    sisa.forEach((t, id) => {
+      if (t.done) return;
+      if (pergi.has(id) || (t.asal === PERANGKAT && j.jadwal.length)) { data.tasks = data.tasks.filter((x) => x !== t); ubah = true; }
+    });
+    return ubah;
+  }
+  function sinkronJembatan() {
+    let a = false, b = false;
+    try { a = sinkronNiras(); } catch (e) { /* abaikan */ }
+    try { b = sinkronLei(); } catch (e) { /* abaikan */ }
+    return a || b;
+  }
+  window.addEventListener('storage', (e) => {
+    if ((e.key === NIRAS_KEY || e.key === LEI_KEY) && sinkronJembatan()) { save(); render(); }
+  });
+
   /* ---------- Detak: pengingat, ringkasan, Ofa ---------- */
   let lastMinute = '';
   function tick() {
+    if (sinkronJembatan()) { save(); render(); }
     const n = now();
     const due = C.dueReminders(data, n);
     if (due.length) {
