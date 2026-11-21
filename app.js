@@ -509,6 +509,32 @@
     toast(`Dicatat: ${t.title} · ${C.fmtDateShort(t.date)}${t.time ? ` ${C.fmtTime(t.time)}` : ''} · ${p.name}`, 'Ubah', () => openSheet({ type: 'task', id: t.id }));
   }
 
+  /* ---------- Dilan: catat cepat dari laptop ----------
+     Dipakai dilan.js: ketikan di kolom Dilan (Ctrl+Alt+Q) jadi jadwal, memakai catat cepat yang sama.
+     Proyek bila tidak disebut: proyek terakhir dipakai (bukan filter layar, karena pengguna tidak sedang melihat OfA). */
+  function catatDariDilan(teks, catatan, tautan) {
+    const r = C.parseQuick(String(teks || ''), now(), data.projects);
+    if (!r.title) return null;
+    const pid = r.projectId || (data.lastProject && proj(data.lastProject) ? data.lastProject : data.projects[0].id);
+    const p = proj(pid);
+    const ringkas = `${r.title} · ${C.fmtDateShort(r.date || today())}${r.time ? ` ${C.fmtTime(r.time)}` : ''} · ${p ? p.name : ''}`;
+    return { r, pid, ringkas, catatan: catatan || '', tautan: tautan || '' };
+  }
+  window.OfaDilan = {
+    pratinjau(teks) {
+      const c = catatDariDilan(teks);
+      return c ? 'Jadwal baru: ' + c.ringkas : null;
+    },
+    catat(teks, catatan, tautan) {
+      const c = catatDariDilan(teks, catatan, tautan);
+      if (!c) return { ok: false, teks: 'Tulis dulu apa yang mau dicatat' };
+      addTask({ title: c.r.title, date: c.r.date || today(), time: c.r.time || null, projectId: c.pid, note: c.catatan, link: c.tautan });
+      save(); render();
+      if (document.visibilityState === 'visible') toast('Dari Dilan: ' + c.ringkas);
+      return { ok: true, teks: c.ringkas };
+    }
+  };
+
   function toggleTask(id) {
     const t = data.tasks.find((x) => x.id === id);
     if (!t) return;
