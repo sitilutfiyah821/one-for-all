@@ -3,7 +3,8 @@
 
    Cara pakai: <script src="dilan.js" data-aplikasi="niras" defer></script>   (atau data-aplikasi="ofa")
 
-   Modul ini HANYA MEMBACA data aplikasi di penyimpanan browser (localStorage) dan tidak pernah mengubahnya.
+   Modul ini membaca data aplikasi di penyimpanan browser (localStorage) dan tidak mengubahnya sendiri. Satu-satunya
+   penulisan: ketikan dari Dilan (Ctrl+Alt+Q) diteruskan ke catat cepat One for All lewat window.OfaDilan (app.js).
    Di HP atau bila Dilan tidak berjalan, modul ini diam: tidak ada pesan, tidak ada notifikasi. */
 (function () {
   'use strict';
@@ -100,9 +101,36 @@
       });
   }
 
+  /* ---------- One for All: menerima ketikan dari Dilan ---------- */
+  /** Teks Markdown dari Dilan → baris pertama untuk catat cepat, sisanya catatan; tautan dari sumber bila ada. */
+  function uraiKetikan(m) {
+    const baris = String(m.teks || '').split('\n');
+    let i = baris.findIndex((b) => b.trim());
+    if (i < 0) i = 0;
+    const pertama = (baris[i] || '').replace(/^\s*(?:- \[ \]\s*|>\s*)/, '').trim();
+    const sisa = baris.slice(i + 1).join('\n').trim();
+    const url = /^https?:\/\//i.test(m.sumber || '') ? m.sumber : ((m.teks || '').match(/https?:\/\/[^\s)\]>]+/) || [''])[0];
+    const catatan = m.jenis === 'kutipan' ? String(m.teks || '').trim() : (sisa === url ? '' : sisa);
+    return { teks: pertama, catatan, tautan: url };
+  }
+  function tangkapOfa(m) {
+    const balas = (tipe, teks) => ({ tipe, nomor: m.nomor, teks });
+    const O = window.OfaDilan;
+    if (!O) return balas(m.kirim ? 'gagal' : 'pratinjau', 'Muat ulang tab One for All dulu');
+    const u = uraiKetikan(m);
+    if (!m.kirim) return balas('pratinjau', O.pratinjau(u.teks) || 'Tulis apa yang mau dicatat');
+    const h = O.catat(u.teks, u.catatan, u.tautan);
+    return h.ok ? balas('diterima', h.teks) : balas('gagal', h.teks);
+  }
+
   const PROFIL = {
     niras: { nama: 'Niras', ikon: { huruf: 'N', warna: '#0F5F4E' }, ambil: aktivitasNiras },
-    ofa: { nama: 'One for All', ikon: { huruf: 'O', warna: '#B5733F' }, ambil: aktivitasOfa }
+    ofa: {
+      nama: 'One for All', ikon: { huruf: 'O', warna: '#B5733F' }, ambil: aktivitasOfa,
+      // Ketikan di Dilan (Ctrl+Alt+Q) jadi jadwal OfA. Tanpa awalan bila OfA satu-satunya penerima; "/o" bila ada beberapa.
+      daftar: { langganan: ['tangkap'], awalan_tangkap: '/o' },
+      tangkap: tangkapOfa
+    }
   };
   const profil = PROFIL[APLIKASI];
   if (!profil) return;
@@ -135,11 +163,16 @@
     ws.onopen = () => {
       siap = false;
       terkirim = new Map();
-      kirim({ tipe: 'daftar', aplikasi: APLIKASI, nama: profil.nama, ikon: profil.ikon });
+      kirim(Object.assign({ tipe: 'daftar', aplikasi: APLIKASI, nama: profil.nama, ikon: profil.ikon }, profil.daftar || {}));
     };
     ws.onmessage = (e) => {
       let m; try { m = JSON.parse(e.data); } catch (er) { return; }
       if (m.tipe === 'diterima_daftar') { siap = true; selaraskan(); }
+      else if (m.tipe === 'tangkap' && profil.tangkap && Number.isInteger(m.nomor)) {
+        let jawab;
+        try { jawab = profil.tangkap(m); } catch (er) { jawab = { tipe: m.kirim ? 'gagal' : 'pratinjau', nomor: m.nomor, teks: 'Gagal mencatat' }; }
+        kirim(jawab);
+      }
       else if (m.tipe === 'galat' && window.console) console.warn('[Dilan]', m.kode, m.pesan);
     };
     ws.onclose = () => { ws = null; siap = false; jadwalkanUlang(); };
