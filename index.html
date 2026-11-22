@@ -166,6 +166,23 @@ textarea.input{height:auto;min-height:72px;padding:12px 14px;resize:vertical}
 #toast[hidden]{display:none}
 #toast button{background:none;border:none;color:#FFC94D;font-weight:800;min-height:40px;padding:0 4px;flex-shrink:0}
 .toast-ofa{line-height:0;background:#FFF0C7;border-radius:999px;padding:2px 6px;flex-shrink:0}
+.notes{list-style:none;margin:0;padding:0;column-count:2;column-gap:10px}
+.note{break-inside:avoid;margin:0 0 10px;border-radius:18px;display:block}
+.note-main{display:flex;flex-direction:column;gap:10px;width:100%;text-align:left;border:none;background:none;color:inherit;padding:14px;border-radius:18px}
+.note-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:12;-webkit-box-orient:vertical;overflow:hidden}
+.note-text b{font-weight:800}
+.note-foot{display:flex;gap:6px;align-items:center;font-size:12px;font-weight:700}
+.note-pin{display:inline-flex}
+.note-search{display:flex;align-items:center;gap:8px;background:#fff;border-radius:999px;padding:0 16px;color:var(--muted);border:2px solid transparent}
+.note-search:focus-within{border-color:var(--focus)}
+.note-search input{flex:1;min-width:0;border:none;outline:none;height:44px;font-size:15px;font-weight:600;background:transparent;color:var(--ink)}
+.note-area{width:100%;min-height:260px;border:2px solid transparent;border-radius:20px;padding:16px;font-size:16px;font-weight:600;line-height:1.5;resize:vertical}
+.note-area:focus{outline:none;border-color:var(--focus)}
+.swatch{width:32px;height:32px;border-radius:999px;border:3px solid #fff;outline:2px solid transparent;padding:0}
+.swatch[aria-pressed="true"]{outline-color:var(--ink)}
+.nav button{min-width:56px}
+.nav button span{padding:4px 12px}
+@media (min-width:900px){#app.wide{max-width:980px}#app.wide .notes{column-count:3}}
 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>

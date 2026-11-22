@@ -11,6 +11,7 @@
     d.profile = Object.assign(base.profile, d.profile || {});
     d.projects = Array.isArray(d.projects) && d.projects.length ? d.projects : base.projects;
     d.tasks = Array.isArray(d.tasks) ? d.tasks : [];
+    d.notes = Array.isArray(d.notes) ? d.notes : [];
     d.fired = d.fired || {};
     return d;
   }
@@ -28,7 +29,7 @@
   let primed = false;
   function stampChanges(stamp) {
     const t = Date.now();
-    for (const [k, list] of [['t', data.tasks], ['p', data.projects]]) {
+    for (const [k, list] of [['t', data.tasks], ['p', data.projects], ['n', data.notes || []]]) {
       for (const x of list) {
         const { updatedAt, ...rest } = x;
         const j = JSON.stringify(rest), key = k + x.id;
@@ -77,7 +78,10 @@
     send: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     gcal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 13v5M9.5 15.5h5"/>',
-    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>'
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
+    note: '<path d="M5 4h14a1 1 0 0 1 1 1v9l-6 6H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 20v-5a1 1 0 0 1 1-1h5"/>',
+    pin: '<path d="M9 4h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 15v5"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'
   };
   const icon = (n, size, sw) => `<svg width="${size || 22}" height="${size || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw || 2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -450,13 +454,97 @@
     if (s.type === 'summary') return summarySheet();
     if (s.type === 'welcome') return welcomeSheet();
     if (s.type === 'reset') return resetSheet();
+    if (s.type === 'note') return noteSheet();
     return '';
   }
 
+  /* ---------- Layar: Catatan (seperti sticky notes di desktop) ---------- */
+  const WARNA_CATATAN = ['kuning', 'koral', 'mint', 'biru', 'ungu', 'pink'];
+  const waktuCatatan = (n) => n.updatedAt || Date.parse(n.createdAt || 0) || 0;
+  function noteCard(n) {
+    const c = C.palet(n.color || 'kuning');
+    const [first, ...rest] = String(n.text || '').split('\n');
+    const d = new Date(waktuCatatan(n));
+    return `<li class="note" style="background:${c.tint};color:${c.ink}">
+      <button type="button" class="note-main" data-act="edit-note" data-id="${n.id}" aria-label="Buka catatan: ${esc(first.slice(0, 60))}">
+        <span class="note-text"><b>${esc(first)}</b>${rest.length ? `\n${esc(rest.join('\n'))}` : ''}</span>
+        <span class="note-foot">${n.pinned ? `<span class="note-pin" title="Disematkan">${icon('pin', 14)}</span>` : ''}<span>${isNaN(d) ? '' : esc(C.fmtDateShort(C.ymd(d)))}</span></span>
+      </button>
+    </li>`;
+  }
+
+  function viewNotes() {
+    const q = (ui.noteQuery || '').trim().toLowerCase();
+    const semua = (data.notes || []).slice().sort((a, b) => waktuCatatan(b) - waktuCatatan(a));
+    const list = q ? semua.filter((n) => String(n.text || '').toLowerCase().includes(q)) : semua;
+    const pinned = list.filter((n) => n.pinned), lain = list.filter((n) => !n.pinned);
+    return `
+      <header class="top"><div><p class="eyebrow">Tulis apa saja, kapan saja</p><h1>Catatan</h1></div></header>
+      <form id="note-quick" class="quick" autocomplete="off">
+        <label for="note-quick-in" class="sr">Catatan baru</label>
+        <input id="note-quick-in" name="q" placeholder="Tulis catatan singkat…" enterkeyhint="send" maxlength="2000">
+        <button class="send" aria-label="Simpan catatan">${icon('plus', 22, 2.5)}</button>
+      </form>
+      ${semua.length >= 4 ? `<div class="note-search">${icon('search', 18)}<label for="note-search" class="sr">Cari catatan</label><input id="note-search" type="search" placeholder="Cari catatan" value="${esc(ui.noteQuery || '')}"></div>` : ''}
+      ${!semua.length ? `<div class="empty">${C.ofaSVG('senang', 96)}<p class="muted">Belum ada catatan. Tulis ide, daftar belanja, kutipan, atau apa saja yang lewat di kepala.</p></div>` : ''}
+      ${semua.length && !list.length ? `<p class="empty-line">Tidak ada catatan yang cocok dengan "${esc(ui.noteQuery)}".</p>` : ''}
+      ${pinned.length ? `<h2>Disematkan</h2><ul class="notes">${pinned.map(noteCard).join('')}</ul>` : ''}
+      ${lain.length ? `${pinned.length ? '<h2>Lainnya</h2>' : ''}<ul class="notes">${lain.map(noteCard).join('')}</ul>` : ''}`;
+  }
+
+  function noteSheet() {
+    const n = ui.sheet.id ? (data.notes || []).find((x) => x.id === ui.sheet.id) : null;
+    const v = n || { text: ui.sheet.text || '', color: 'kuning', pinned: false };
+    const c = C.palet(v.color || 'kuning');
+    const body = `
+      <form id="note-form" novalidate>
+        <label for="note-text" class="sr">Isi catatan</label>
+        <textarea id="note-text" class="note-area" name="text" maxlength="5000" placeholder="Tulis catatanmu…" style="background:${c.tint};color:${c.ink}">${esc(v.text || '')}</textarea>
+        <input type="hidden" name="color" value="${esc(v.color || 'kuning')}">
+        <input type="hidden" name="pinned" value="${v.pinned ? '1' : ''}">
+        <div class="row-between">
+          <div class="colors" role="group" aria-label="Warna catatan">
+            ${WARNA_CATATAN.map((k) => { const p = C.palet(k); const on = (v.color || 'kuning') === k; return `<button type="button" class="swatch" data-act="note-color" data-id="${k}" aria-pressed="${on}" aria-label="Warna ${k}" style="background:${p.c}"></button>`; }).join('')}
+          </div>
+          <button type="button" class="mini${v.pinned ? ' dark' : ''}" data-act="note-pin" aria-pressed="${!!v.pinned}">${icon('pin', 16)} ${v.pinned ? 'Disematkan' : 'Sematkan'}</button>
+        </div>
+        <p class="small muted" style="margin:0">Tersimpan otomatis saat ditutup.</p>
+        <button type="submit" class="btn">Simpan</button>
+        <div class="btn-row">
+          <button type="button" class="btn ghost" data-act="note-to-task">${icon('cal', 20)} Jadikan jadwal</button>
+          ${n ? `<button type="button" class="btn danger" data-act="delete-note" data-id="${n.id}">Hapus</button>` : ''}
+        </div>
+      </form>`;
+    return sheetWrap(n ? 'Catatan' : 'Catatan baru', body);
+  }
+
+  /** Simpan isi formulir catatan. Catatan yang dikosongkan ikut terhapus, seperti sticky notes. */
+  function saveNoteForm(quiet) {
+    const f = $('#note-form');
+    if (!f || !ui.sheet || ui.sheet.type !== 'note') return;
+    const text = f.text.value.replace(/\s+$/, '');
+    const color = f.color.value || 'kuning';
+    const pinned = !!f.pinned.value;
+    data.notes = data.notes || [];
+    const n = ui.sheet.id ? data.notes.find((x) => x.id === ui.sheet.id) : null;
+    if (n) {
+      if (!text.trim()) { data.notes = data.notes.filter((x) => x !== n); save(); if (!quiet) toast('Catatan kosong dihapus.'); return; }
+      if (n.text === text && n.color === color && !!n.pinned === pinned) return;
+      Object.assign(n, { text, color, pinned });
+      save(); if (!quiet) toast('Catatan disimpan.');
+    } else if (text.trim()) {
+      const baru = { id: C.uid(), text, color, pinned, createdAt: new Date().toISOString() };
+      data.notes.push(baru);
+      ui.sheet.id = baru.id;
+      save(); if (!quiet) toast('Catatan disimpan.');
+    }
+  }
+
   /* ---------- Render ---------- */
-  const TABS = [['hari', 'Hari ini', 'sun'], ['kalender', 'Kalender', 'cal'], ['rapor', 'Rapor', 'star'], ['proyek', 'Proyek', 'folder']];
+  const TABS = [['hari', 'Hari ini', 'sun'], ['kalender', 'Kalender', 'cal'], ['catatan', 'Catatan', 'note'], ['rapor', 'Rapor', 'star'], ['proyek', 'Proyek', 'folder']];
   function renderBase() {
-    const views = { hari: viewToday, kalender: viewCalendar, rapor: viewReport, proyek: viewProjects };
+    const views = { hari: viewToday, kalender: viewCalendar, catatan: viewNotes, rapor: viewReport, proyek: viewProjects };
+    $('#app').classList.toggle('wide', ui.tab === 'catatan');
     const scroll = window.scrollY;
     // jaga isi kolom catat cepat & pengaturan yang sedang diketik
     const active = document.activeElement;
@@ -465,6 +553,7 @@
     $('#app').innerHTML = `
       <main class="main" id="main">${views[ui.tab]()}</main>
       ${ui.tab === 'hari' || ui.tab === 'kalender' ? `<button type="button" class="fab" data-act="new" aria-label="Tambah jadwal">${icon('plus', 28, 2.5)}</button>` : ''}
+      ${ui.tab === 'catatan' ? `<button type="button" class="fab" data-act="new-note" aria-label="Catatan baru">${icon('plus', 28, 2.5)}</button>` : ''}
       <nav class="nav" aria-label="Navigasi utama">${TABS.map(([id, label, ic]) => `<button type="button" data-act="tab" data-id="${id}" ${ui.tab === id ? 'aria-current="page"' : ''}><span>${icon(ic)}</span>${label}</button>`).join('')}</nav>`;
     if (keepId) { const el = document.getElementById(keepId); if (el) { el.value = keepVal; el.focus(); } }
     window.scrollTo(0, scroll);
@@ -481,10 +570,16 @@
     ui.sheet = s;
     $('#sheet-root').innerHTML = renderSheet();
     document.body.classList.add('locked');
+    if (s.type === 'note') {
+      const ta = $('#note-text');
+      if (ta) setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 50);
+      return;
+    }
     const first = $('#sheet-root input:not([type=hidden]):not([type=checkbox]):not([type=radio]), #sheet-root .btn');
     if (first && s.type !== 'summary') setTimeout(() => first.focus(), 50);
   }
   function closeSheet() {
+    if (ui.sheet && ui.sheet.type === 'note') saveNoteForm(true);
     ui.sheet = null;
     $('#sheet-root').innerHTML = '';
     document.body.classList.remove('locked');
@@ -821,6 +916,42 @@
       case 'toggle': toggleTask(id); break;
       case 'edit': openSheet({ type: 'task', id }); break;
       case 'new': openSheet({ type: 'task' }); break;
+      case 'new-note': openSheet({ type: 'note' }); break;
+      case 'edit-note': openSheet({ type: 'note', id }); break;
+      case 'note-color': {
+        const f = el.closest('form'); const p = C.palet(id);
+        f.color.value = id;
+        $$('[data-act="note-color"]', f).forEach((b) => b.setAttribute('aria-pressed', b === el));
+        Object.assign($('#note-text').style, { background: p.tint, color: p.ink });
+        break;
+      }
+      case 'note-pin': {
+        const f = el.closest('form'); const on = !f.pinned.value;
+        f.pinned.value = on ? '1' : '';
+        el.setAttribute('aria-pressed', on);
+        el.classList.toggle('dark', on);
+        el.innerHTML = `${icon('pin', 16)} ${on ? 'Disematkan' : 'Sematkan'}`;
+        break;
+      }
+      case 'note-to-task': {
+        const teks = ($('#note-text').value || '').split('\n').find((l) => l.trim()) || '';
+        const r = C.parseQuick(teks, now(), data.projects);
+        if (!r.title) { toast('Tulis dulu isi catatannya.'); break; }
+        saveNoteForm(true);
+        const pid = r.projectId || (data.lastProject && proj(data.lastProject) ? data.lastProject : data.projects[0].id);
+        const t = addTask({ title: r.title, date: r.date || today(), time: r.time || null, projectId: pid, note: '', link: '' });
+        save(); closeSheet();
+        toast(`Jadwal dibuat: ${t.title} · ${C.fmtDateShort(t.date)}${t.time ? ` ${C.fmtTime(t.time)}` : ''} · ${proj(pid).name}`, 'Ubah', () => openSheet({ type: 'task', id: t.id }));
+        break;
+      }
+      case 'delete-note': {
+        const n = (data.notes || []).find((x) => x.id === id);
+        if (!n) break;
+        data.notes = data.notes.filter((x) => x !== n);
+        save(); ui.sheet = null; closeSheet();
+        toast('Catatan dihapus.', 'Urungkan', () => { data.notes.push(n); save(); render(); });
+        break;
+      }
       case 'summary': openSheet({ type: 'summary' }); break;
       case 'close': closeSheet(); break;
       case 'resched': {
@@ -910,9 +1041,21 @@
     if (f.id === 'quick') { const v = f.q.value; f.q.value = ''; quickAdd(v); }
     if (f.id === 'task-form') saveTaskForm(f);
     if (f.id === 'project-form') saveProjectForm(f);
+    if (f.id === 'note-quick') {
+      const v = f.q.value.trim();
+      if (!v) { openSheet({ type: 'note' }); return; }
+      f.q.value = '';
+      data.notes = data.notes || [];
+      data.notes.push({ id: C.uid(), text: v, color: 'kuning', pinned: false, createdAt: new Date().toISOString() });
+      save(); render(); toast('Catatan disimpan.');
+    }
+    if (f.id === 'note-form') { saveNoteForm(false); closeSheet(); }
   });
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ui.sheet) closeSheet(); });
+  document.addEventListener('input', (e) => {
+    if (e.target.id === 'note-search') { ui.noteQuery = e.target.value; renderBase(); }
+  });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tick(); });
 
   /* ---------- Jembatan untuk sinkron (sync.js) ---------- */

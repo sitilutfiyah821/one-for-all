@@ -16,7 +16,7 @@ const auth = getAuth(fbApp);
 const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
 
 const state = { status: 'loading', user: null, error: null, lastSync: null };
-const synced = { tasks: new Map(), projects: new Map(), profile: null };
+const synced = { tasks: new Map(), projects: new Map(), notes: new Map(), profile: null };
 let uid = null, unsubs = [], pushing = Promise.resolve();
 
 const clean = (o) => JSON.parse(JSON.stringify(o));
@@ -42,7 +42,7 @@ async function commitOps(ops) {
 function collectChanges() {
   const d = App.getData();
   const ops = [];
-  for (const [kind, list] of [['tasks', d.tasks], ['projects', d.projects]]) {
+  for (const [kind, list] of [['tasks', d.tasks], ['projects', d.projects], ['notes', d.notes || []]]) {
     const map = synced[kind];
     const ids = new Set();
     for (const item of list) {
@@ -87,11 +87,13 @@ async function begin(user) {
   uid = user.uid;
   emit({ status: 'syncing', user: { name: user.displayName, email: user.email, photo: user.photoURL }, error: null });
   try {
-    const [ts, ps, prof] = await Promise.all([
-      getDocs(collection(userRef(), 'tasks')), getDocs(collection(userRef(), 'projects')), getDoc(userRef())
+    const [ts, ps, ns, prof] = await Promise.all([
+      getDocs(collection(userRef(), 'tasks')), getDocs(collection(userRef(), 'projects')),
+      getDocs(collection(userRef(), 'notes')), getDoc(userRef())
     ]);
     const rTasks = ts.docs.map((s) => s.data());
     const rProjects = ps.docs.map((s) => s.data());
+    const rNotes = ns.docs.map((s) => s.data());
     const rProfile = prof.exists() ? prof.data().profile : null;
     const sameAccount = localStorage.getItem('ofa-sync-uid') === uid;
     const lastSyncAt = sameAccount ? Number(localStorage.getItem('ofa-sync-at') || 0) : 0;
@@ -99,11 +101,13 @@ async function begin(user) {
     // catat keadaan awan sebagai titik awal, lalu gabungkan
     rTasks.forEach((t) => synced.tasks.set(t.id, JSON.stringify(t)));
     rProjects.forEach((p) => synced.projects.set(p.id, JSON.stringify(p)));
+    rNotes.forEach((n) => synced.notes.set(n.id, JSON.stringify(n)));
     synced.profile = rProfile ? JSON.stringify(pickProfile(rProfile)) : null;
 
     App.applyRemote((d) => {
       d.tasks = mergeList(d.tasks, rTasks, lastSyncAt);
       if (rProjects.length) d.projects = mergeList(d.projects, rProjects, lastSyncAt);
+      d.notes = mergeList(d.notes || [], rNotes, lastSyncAt);
       if (rProfile) Object.assign(d.profile, pickProfile(rProfile));
     });
     localStorage.setItem('ofa-sync-uid', uid);
@@ -134,6 +138,7 @@ function listen() {
   };
   unsubs.push(onSnapshot(collection(userRef(), 'tasks'), apply('tasks'), (e) => emit({ error: pesanGalat(e) })));
   unsubs.push(onSnapshot(collection(userRef(), 'projects'), apply('projects'), (e) => emit({ error: pesanGalat(e) })));
+  unsubs.push(onSnapshot(collection(userRef(), 'notes'), apply('notes'), (e) => emit({ error: pesanGalat(e) })));
   unsubs.push(onSnapshot(userRef(), (s) => {
     const p = s.exists() ? s.data().profile : null;
     if (!p) return;
@@ -147,7 +152,7 @@ function listen() {
 function stop() {
   unsubs.forEach((u) => u()); unsubs = [];
   uid = null;
-  synced.tasks.clear(); synced.projects.clear(); synced.profile = null;
+  synced.tasks.clear(); synced.projects.clear(); synced.notes.clear(); synced.profile = null;
 }
 
 function pesanGalat(e) {

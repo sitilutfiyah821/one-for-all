@@ -43,6 +43,16 @@ Buka **Proyek → Sinkron HP & laptop → Masuk dengan Google** di HP dan di lap
 
 Data disimpan di Firebase (proyek `one-for-all-2116f`, server Jakarta). Aturan keamanannya hanya mengizinkan akunmu sendiri membaca dan menulis datamu. Konfigurasi Firebase ada di `firebase-config.js`; isinya memang boleh publik, karena yang menjaga data adalah login dan aturan keamanan tadi.
 
+## Catatan
+
+Menu **Catatan** di bilah bawah berfungsi seperti sticky notes di desktop: tulis ide, daftar belanja, kutipan, atau apa saja.
+
+- Ketik di kolom atas lalu tekan Enter untuk catatan singkat, atau tombol **+** untuk catatan panjang.
+- Ketuk catatan untuk mengubahnya. Catatan tersimpan otomatis saat ditutup; catatan yang dikosongkan ikut terhapus.
+- Pilih warna, **Sematkan** catatan penting supaya selalu di atas, dan cari catatan lewat kolom **Cari** (muncul setelah ada 4 catatan).
+- **Jadikan jadwal** mengubah baris pertama catatan menjadi jadwal memakai catat cepat (mis. `5/12 17.00 flyer adib`).
+- Di laptop, catatan tampil tiga kolom. Catatan ikut tersinkron ke HP dan laptop setelah masuk dengan Google.
+
 ## Yang perlu diketahui di versi coba
 
 - **Sebelum masuk dengan Google, data hanya ada di perangkat itu.** Simpan cadangan secara berkala lewat **Proyek → Cadangan data**.

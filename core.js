@@ -60,6 +60,7 @@
           keywords: ['posting', 'post', 'reels', 'carousel', 'konten', 'feed', 'story', 'upload'] }
       ],
       tasks: [],
+      notes: [],
       fired: {},
       lastSummary: null
     };
