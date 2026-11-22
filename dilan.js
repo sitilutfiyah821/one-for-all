@@ -4,7 +4,8 @@
    Cara pakai: <script src="dilan.js" data-aplikasi="niras" defer></script>   (atau data-aplikasi="ofa")
 
    Modul ini membaca data aplikasi di penyimpanan browser (localStorage) dan tidak mengubahnya sendiri. Satu-satunya
-   penulisan: ketikan dari Dilan (Ctrl+Alt+Q) diteruskan ke jadwal atau Catatan One for All lewat window.OfaDilan (app.js).
+   penulisan: ketikan dari Dilan (Ctrl+Alt+Q) diteruskan ke jadwal atau Catatan One for All lewat window.OfaDilan (app.js),
+   atau dititipkan untuk Bank ide Lei Stuff ("i: …", kunci 'dilan-ke-leistuff-v1').
    Di HP atau bila Dilan tidak berjalan, modul ini diam: tidak ada pesan, tidak ada notifikasi. */
 (function () {
   'use strict';
@@ -122,8 +123,27 @@
     if (m.jenis === 'tautan') return mentah.trim();
     return null;
   }
+  /** "i: …" atau "ide: …" → Bank ide Lei Stuff. Lei Stuff aplikasi lain di alamat yang sama, jadi ide dititipkan di
+      penyimpanan browser ('dilan-ke-leistuff-v1') dan diambil Lei Stuff saat dibuka (atau langsung, bila sedang terbuka). */
+  const AWALAN_IDE = /^\s*(?:i|ide)\s*:\s*/i;
+  const KOTAK_IDE = 'dilan-ke-leistuff-v1';
+  function titipIde(teks) {
+    let box = baca(KOTAK_IDE);
+    if (!box || !Array.isArray(box.ide)) box = { v: 1, ide: [] };
+    box.ide.push({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text: teks, at: Date.now() });
+    box.ide = box.ide.slice(-200);
+    localStorage.setItem(KOTAK_IDE, JSON.stringify(box));
+  }
   function tangkapOfa(m) {
     const balas = (tipe, teks) => ({ tipe, nomor: m.nomor, teks });
+    const mentah = String(m.teks || '');
+    if (AWALAN_IDE.test(mentah)) {
+      const ide = mentah.replace(AWALAN_IDE, '').trim();
+      if (!m.kirim) return balas('pratinjau', ide ? 'Ide baru untuk Lei Stuff: ' + potong(ide, 70) : 'Tulis idenya');
+      if (!ide) return balas('gagal', 'Tulis dulu idenya');
+      try { titipIde(ide); } catch (e) { return balas('gagal', 'Ide gagal disimpan'); }
+      return balas('diterima', 'Ide ke Lei Stuff: ' + potong(ide, 50));
+    }
     const O = window.OfaDilan;
     if (!O) return balas(m.kirim ? 'gagal' : 'pratinjau', 'Muat ulang tab One for All dulu');
     const isiCatatan = keCatatan(m);
@@ -143,7 +163,7 @@
     niras: { nama: 'Niras', ikon: { huruf: 'N', warna: '#0F5F4E' }, ambil: aktivitasNiras },
     ofa: {
       nama: 'One for All', ikon: { huruf: 'O', warna: '#B5733F' }, ambil: aktivitasOfa,
-      // Ketikan di Dilan (Ctrl+Alt+Q) jadi jadwal OfA; "c: …" jadi catatan. Tanpa awalan bila OfA satu-satunya penerima; "/o" bila ada beberapa.
+      // Ketikan di Dilan (Ctrl+Alt+Q) jadi jadwal OfA; "c: …" jadi catatan; "i: …" jadi ide di Lei Stuff. Tanpa awalan bila OfA satu-satunya penerima; "/o" bila ada beberapa.
       daftar: { langganan: ['tangkap'], awalan_tangkap: '/o' },
       tangkap: tangkapOfa
     }
