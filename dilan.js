@@ -171,6 +171,28 @@
   const profil = PROFIL[APLIKASI];
   if (!profil) return;
 
+  /* ---------- satu tab saja yang tersambung ----------
+     Dilan hanya menyimpan satu sambungan per aplikasi: tab kedua yang mendaftar menggantikan yang pertama. Tanpa
+     aturan ini, dua tab yang sama-sama terbuka saling merebut tiap 20 detik dan ketikan bisa jatuh ke tab berkode lama.
+     Tab yang tersambung mencatat dirinya (dengan versi modul) di penyimpanan browser; tab lain menunggu, kecuali
+     catatannya kedaluwarsa (tab itu sudah ditutup) atau versi modulnya lebih lama. */
+  const VERSI_MODUL = 5;
+  const KUNCI_PEMIMPIN = 'dilan-pemimpin-' + APLIKASI;
+  const ID_TAB = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const HIDUP_MS = 150000;   // tab di latar bisa diperlambat browser sampai sekali semenit
+  function bolehSambung() {
+    const p = baca(KUNCI_PEMIMPIN);
+    if (!p || p.tab === ID_TAB || Date.now() - (Number(p.hb) || 0) > HIDUP_MS) return true;
+    return (Number(p.versi) || 0) < VERSI_MODUL;
+  }
+  function tandaiPemimpin() {
+    try { localStorage.setItem(KUNCI_PEMIMPIN, JSON.stringify({ tab: ID_TAB, versi: VERSI_MODUL, hb: Date.now() })); } catch (e) { }
+  }
+  function lepasPemimpin() {
+    const p = baca(KUNCI_PEMIMPIN);
+    if (p && p.tab === ID_TAB) { try { localStorage.removeItem(KUNCI_PEMIMPIN); } catch (e) { } }
+  }
+
   /* ---------- sambungan ---------- */
   let ws = null;
   let siap = false;                 // sudah diterima_daftar
@@ -183,6 +205,7 @@
 
   function selaraskan() {
     if (!siap) return;
+    tandaiPemimpin();
     let daftar;
     try { daftar = profil.ambil(); } catch (e) { return; }
     const baru = new Map(daftar.map((a) => [a.id, JSON.stringify(a)]));
@@ -195,7 +218,9 @@
 
   function sambung() {
     clearTimeout(tundaUlang);
-    try { ws = new WebSocket(ALAMAT); } catch (e) { jadwalkanUlang(); return; }
+    if (ws) return;
+    if (!bolehSambung()) { jadwalkanUlang(); return; }
+    try { ws = new WebSocket(ALAMAT); } catch (e) { ws = null; jadwalkanUlang(); return; }
     ws.onopen = () => {
       siap = false;
       terkirim = new Map();
@@ -203,7 +228,7 @@
     };
     ws.onmessage = (e) => {
       let m; try { m = JSON.parse(e.data); } catch (er) { return; }
-      if (m.tipe === 'diterima_daftar') { siap = true; selaraskan(); }
+      if (m.tipe === 'diterima_daftar') { siap = true; tandaiPemimpin(); selaraskan(); }
       else if (m.tipe === 'tangkap' && profil.tangkap && Number.isInteger(m.nomor)) {
         let jawab;
         try { jawab = profil.tangkap(m); } catch (er) { jawab = { tipe: m.kirim ? 'gagal' : 'pratinjau', nomor: m.nomor, teks: 'Gagal mencatat' }; }
@@ -220,7 +245,11 @@
   }
 
   setInterval(selaraskan, PERIKSA_MS);
-  window.addEventListener('storage', selaraskan);           // berubah dari tab lain
+  window.addEventListener('storage', (e) => {
+    if (e.key === KUNCI_PEMIMPIN) { if (!ws && !e.newValue) { clearTimeout(tundaUlang); tundaUlang = setTimeout(sambung, 500 + Math.random() * 1500); } return; }
+    selaraskan();                                              // data aplikasi berubah dari tab lain
+  });
   document.addEventListener('visibilitychange', selaraskan);
+  window.addEventListener('pagehide', lepasPemimpin);       // tab ditutup/dimuat ulang: tab lain boleh mengambil alih
   sambung();
 })();
