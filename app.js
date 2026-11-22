@@ -627,6 +627,16 @@
       save(); render();
       if (document.visibilityState === 'visible') toast('Dari Dilan: ' + c.ringkas);
       return { ok: true, teks: c.ringkas };
+    },
+    /** Ketikan "c: …", kutipan, atau tautan dari Dilan jadi catatan (sama seperti kolom catat cepat di tab Catatan). */
+    catatan(teks) {
+      const isi = String(teks || '').replace(/\s+$/, '').slice(0, 5000);
+      if (!isi.trim()) return { ok: false, teks: 'Tulis dulu isi catatannya' };
+      data.notes = data.notes || [];
+      data.notes.push({ id: C.uid(), text: isi, color: 'kuning', pinned: false, createdAt: new Date().toISOString() });
+      save(); render();
+      if (document.visibilityState === 'visible') toast('Catatan dari Dilan disimpan.');
+      return { ok: true, teks: 'Catatan: ' + isi.split('\n')[0].slice(0, 60) };
     }
   };
 
