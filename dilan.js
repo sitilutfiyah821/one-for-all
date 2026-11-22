@@ -4,7 +4,7 @@
    Cara pakai: <script src="dilan.js" data-aplikasi="niras" defer></script>   (atau data-aplikasi="ofa")
 
    Modul ini membaca data aplikasi di penyimpanan browser (localStorage) dan tidak mengubahnya sendiri. Satu-satunya
-   penulisan: ketikan dari Dilan (Ctrl+Alt+Q) diteruskan ke catat cepat One for All lewat window.OfaDilan (app.js).
+   penulisan: ketikan dari Dilan (Ctrl+Alt+Q) diteruskan ke jadwal atau Catatan One for All lewat window.OfaDilan (app.js).
    Di HP atau bila Dilan tidak berjalan, modul ini diam: tidak ada pesan, tidak ada notifikasi. */
 (function () {
   'use strict';
@@ -113,10 +113,26 @@
     const catatan = m.jenis === 'kutipan' ? String(m.teks || '').trim() : (sisa === url ? '' : sisa);
     return { teks: pertama, catatan, tautan: url };
   }
+  /** "c: …" atau "catatan: …" (juga kutipan Ctrl+Alt+K dan tautan Ctrl+Alt+W) masuk ke Catatan, bukan jadwal. */
+  const AWALAN_CATATAN = /^\s*(?:c|catatan)\s*:\s*/i;
+  function keCatatan(m) {
+    const mentah = String(m.teks || '');
+    if (AWALAN_CATATAN.test(mentah)) return mentah.replace(AWALAN_CATATAN, '').trim();
+    if (m.jenis === 'kutipan') return mentah.replace(/^> ?/gm, '').trim();   // catatan OfA teks biasa, tanpa tanda kutip Markdown
+    if (m.jenis === 'tautan') return mentah.trim();
+    return null;
+  }
   function tangkapOfa(m) {
     const balas = (tipe, teks) => ({ tipe, nomor: m.nomor, teks });
     const O = window.OfaDilan;
     if (!O) return balas(m.kirim ? 'gagal' : 'pratinjau', 'Muat ulang tab One for All dulu');
+    const isiCatatan = keCatatan(m);
+    if (isiCatatan !== null) {
+      if (!O.catatan) return balas(m.kirim ? 'gagal' : 'pratinjau', 'Muat ulang tab One for All dulu');
+      if (!m.kirim) return balas('pratinjau', isiCatatan ? 'Catatan baru: ' + potong(isiCatatan.split('\n')[0], 70) : 'Tulis isi catatannya');
+      const hc = O.catatan(isiCatatan);
+      return hc.ok ? balas('diterima', hc.teks) : balas('gagal', hc.teks);
+    }
     const u = uraiKetikan(m);
     if (!m.kirim) return balas('pratinjau', O.pratinjau(u.teks) || 'Tulis apa yang mau dicatat');
     const h = O.catat(u.teks, u.catatan, u.tautan);
@@ -127,7 +143,7 @@
     niras: { nama: 'Niras', ikon: { huruf: 'N', warna: '#0F5F4E' }, ambil: aktivitasNiras },
     ofa: {
       nama: 'One for All', ikon: { huruf: 'O', warna: '#B5733F' }, ambil: aktivitasOfa,
-      // Ketikan di Dilan (Ctrl+Alt+Q) jadi jadwal OfA. Tanpa awalan bila OfA satu-satunya penerima; "/o" bila ada beberapa.
+      // Ketikan di Dilan (Ctrl+Alt+Q) jadi jadwal OfA; "c: …" jadi catatan. Tanpa awalan bila OfA satu-satunya penerima; "/o" bila ada beberapa.
       daftar: { langganan: ['tangkap'], awalan_tangkap: '/o' },
       tangkap: tangkapOfa
     }
