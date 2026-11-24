@@ -857,6 +857,15 @@
       save(); render();
       if (document.visibilityState === 'visible') toast('Catatan dari Dilan disimpan.');
       return { ok: true, teks: 'Catatan: ' + isi.split('\n')[0].slice(0, 60) };
+    },
+    /** Ketikan "#ide …" atau "r: …" dari Dilan → kotak ide Clavis, lewat catatan berlabel Clavis. */
+    ide(teks) {
+      const isi = String(teks || '').replace(/\s+/g, ' ').trim().slice(0, 2000);
+      if (!isi) return { ok: false, teks: 'Tulis dulu idenya' };
+      kirimIde(isi);
+      render();
+      if (document.visibilityState === 'visible') toast('Ide dari Dilan dikirim ke kotak ide Clavis.');
+      return { ok: true, teks: 'Ide ke Clavis: ' + isi.slice(0, 60) };
     }
   };
 
