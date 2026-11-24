@@ -20,7 +20,7 @@ const synced = { tasks: new Map(), projects: new Map(), notes: new Map(), profil
 let uid = null, unsubs = [], pushing = Promise.resolve();
 
 const clean = (o) => JSON.parse(JSON.stringify(o));
-const PROFILE_KEYS = ['name', 'summaryTime', 'moodsOn'];
+const PROFILE_KEYS = ['name', 'summaryTime', 'moodsOn', 'clavisBawaan'];
 const pickProfile = (p) => Object.fromEntries(PROFILE_KEYS.filter((k) => p[k] !== undefined).map((k) => [k, p[k]]));
 
 function emit(patch) {

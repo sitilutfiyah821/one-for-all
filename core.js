@@ -47,6 +47,12 @@
     { id: '0', label: 'Tepat waktu' }, { id: 'pagi', label: 'Pagi hari H' }
   ];
 
+  /** Proyek Clavis (meja riset): jadwal dari app Clavis masuk ke sini. */
+  function proyekClavisBawaan() {
+    return { id: 'clavis', name: 'Clavis', color: 'mint', reminders: ['1440', 'pagi'], mutedUntil: null, kind: 'umum',
+      keywords: ['riset', 'penelitian', 'jurnal ilmiah', 'referensi', 'pustaka', 'literatur'] };
+  }
+
   function defaultData() {
     return {
       v: 1,
@@ -57,7 +63,8 @@
         { id: 'lei-stuff', name: 'Lei Stuff', color: 'kuning', reminders: ['20160', '10080', '4320', '1440'], mutedUntil: null, kind: 'lomba',
           keywords: ['lomba', 'kompetisi', 'sayembara', 'pendaftaran', 'karya'] },
         { id: 'nira-studio', name: 'Nira Studio', color: 'ungu', reminders: ['60', '0'], mutedUntil: null, kind: 'umum',
-          keywords: ['posting', 'post', 'reels', 'carousel', 'konten', 'feed', 'story', 'upload'] }
+          keywords: ['posting', 'post', 'reels', 'carousel', 'konten', 'feed', 'story', 'upload'] },
+        proyekClavisBawaan()
       ],
       tasks: [],
       notes: [],
@@ -164,6 +171,8 @@
     if (p === 'sore' && h < 12) h += 12;
     if (p === 'malam' && h >= 5 && h < 12) h += 12;
     if (p === 'pagi' && h === 12) h = 0;
+    // tanpa keterangan, "jam 1" s.d. "jam 5" hampir selalu berarti siang/sore (jam 3 = 15.00)
+    if (!p && h >= 1 && h <= 5) h += 12;
     return `${pad(h)}:${pad(min)}`;
   }
 
@@ -366,7 +375,7 @@
   const api = {
     HARI, HARI_PENDEK, BULAN, BULAN_PENDEK, PALET, PILIHAN_PENGINGAT,
     pad, ymd, parseYMD, addDays, startOfDay, startOfWeek, hm, fmtTime, fmtDateLong, fmtDateShort, daysBetween, dueAt,
-    palet, defaultData, uid, parseQuick, ofaSVG, computeMood, weekStats, reportMood, stickerCount, dueReminders,
+    palet, defaultData, proyekClavisBawaan, uid, parseQuick, ofaSVG, computeMood, weekStats, reportMood, stickerCount, dueReminders,
     googleCalendarLink, greetingWord
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

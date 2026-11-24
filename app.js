@@ -10,6 +10,11 @@
     const base = C.defaultData();
     d.profile = Object.assign(base.profile, d.profile || {});
     d.projects = Array.isArray(d.projects) && d.projects.length ? d.projects : base.projects;
+    // Clavis jadi proyek keempat. Ditambahkan sekali saja: kalau sudah dihapus, tidak muncul lagi.
+    if (!d.profile.clavisBawaan) {
+      if (!d.projects.some((p) => p.id === 'clavis')) d.projects.push(Object.assign(C.proyekClavisBawaan(), { updatedAt: Date.now() }));
+      d.profile.clavisBawaan = true;
+    }
     d.tasks = Array.isArray(d.tasks) ? d.tasks : [];
     d.notes = Array.isArray(d.notes) ? d.notes : [];
     d.fired = d.fired || {};
@@ -20,7 +25,7 @@
       const raw = localStorage.getItem(KEY);
       if (raw) return migrate(JSON.parse(raw));
     } catch (e) { /* data rusak atau penyimpanan tidak tersedia */ }
-    return C.defaultData();
+    return migrate(C.defaultData());
   }
   let data = load();
 
@@ -81,7 +86,8 @@
     edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
     note: '<path d="M5 4h14a1 1 0 0 1 1 1v9l-6 6H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 20v-5a1 1 0 0 1 1-1h5"/>',
     pin: '<path d="M9 4h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 15v5"/>',
-    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+    chat: '<path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9l-5 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8 10h8M8 13h5"/>'
   };
   const icon = (n, size, sw) => `<svg width="${size || 22}" height="${size || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw || 2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -163,7 +169,7 @@
     const in7 = C.ymd(C.addDays(n, 7));
     const soon = f(data.tasks.filter((x) => !x.done && !x.skipped && x.date > t && x.date <= in7)).sort(byDue).slice(0, 4);
 
-    const chips = `<div class="chips" role="group" aria-label="Saring proyek">
+    const chips = `<div class="chips scroll" role="group" aria-label="Saring proyek">
       <button type="button" class="chipbtn${ui.filter === 'all' ? ' on' : ''}" data-act="filter" data-id="all" aria-pressed="${ui.filter === 'all'}">Semua</button>
       ${data.projects.map((p) => { const c = pal(p); const on = ui.filter === p.id; return `<button type="button" class="chipbtn" data-act="filter" data-id="${p.id}" aria-pressed="${on}" style="background:${c.tint};color:${c.ink};border-color:${on ? c.ink : 'transparent'}">${esc(p.name)}</button>`; }).join('')}
     </div>`;
@@ -285,7 +291,7 @@
         <section class="card proj">
           <div class="proj-head">
             <span class="badge" style="background:${c.c}">${esc(p.name.split(/\s+/).map((w) => w.charAt(0)).join('').slice(0, 2).toUpperCase())}</span>
-            <div class="grow"><p class="card-title">${esc(p.name)}</p><p class="small muted">${p.kind === 'lomba' ? 'Lomba · ' : ''}${muted ? 'Dibisukan sampai besok' : `${data.tasks.filter((t) => t.projectId === p.id && !t.done && !t.skipped).length} jadwal aktif`}</p></div>
+            <div class="grow"><p class="card-title">${esc(p.name)}</p><p class="small muted">${p.kind === 'lomba' ? 'Lomba · ' : ''}${p.id === 'clavis' ? 'Dari app Clavis · ' : ''}${muted ? 'Dibisukan sampai besok' : `${data.tasks.filter((t) => t.projectId === p.id && !t.done && !t.skipped).length} jadwal aktif`}</p></div>
             <button type="button" class="switch" role="switch" aria-checked="${!muted}" aria-label="Notifikasi ${esc(p.name)}" data-act="mute" data-id="${p.id}"><span></span></button>
           </div>
           <div class="proj-foot"><p class="rule" style="background:${c.tint};color:${c.ink}">${esc(reminderText(p.reminders))}</p>
@@ -429,10 +435,10 @@
     const body = `
       <div class="summary-top">${C.ofaSVG('senang', 116)}
         <p class="summary-hi">Halo, ${esc(data.profile.name)}! Aku Ofa.</p>
-        <p class="muted center">Aku akan menjaga jadwal Niras, Lei Stuff, dan Nira Studio, lalu mengingatkanmu tepat waktu.</p></div>
+        <p class="muted center">Aku akan menjaga jadwal Niras, Lei Stuff, Nira Studio, dan Clavis, lalu mengingatkanmu tepat waktu. Kamu juga bisa ngobrol denganku di tab Chat.</p></div>
       <div class="card"><p class="card-title">Coba ketik di kolom catat cepat:</p>
         <ul class="tips"><li>besok abis magrib kirim revisi logo ke klien</li><li>jumat posting reels jam 7 malam</li><li>batas kirim lomba puisi 5 desember</li></ul>
-        <p class="small muted">Ofa otomatis menebak tanggal, jam, dan proyeknya. Tambahkan #niras, #leistuff, atau #nirastudio kalau ingin memilih proyek sendiri. Ketik #ide untuk mengirim ide ke kotak ide Clavis.</p></div>
+        <p class="small muted">Ofa otomatis menebak tanggal, jam, dan proyeknya. Tambahkan #niras, #leistuff, #nirastudio, atau #clavis kalau ingin memilih proyek sendiri. Ketik #ide untuk mengirim ide ke kotak ide Clavis.</p></div>
       <div class="card"><p class="card-title">Pasang di layar utama</p><p class="small muted">Android (Chrome): menu ⋮ lalu "Instal aplikasi". iPhone (Safari): tombol Bagikan lalu "Tambahkan ke Layar Utama".</p></div>
       ${'Notification' in window && Notification.permission === 'default' ? '<button type="button" class="btn ghost" data-act="notif">Nyalakan notifikasi</button>' : ''}
       <button type="button" class="btn" data-act="close">Ayo mulai!</button>`;
@@ -541,10 +547,221 @@
     }
   }
 
+  /* ---------- Layar: Chat dengan Ofa ----------
+     Tanpa AI: memakai pengurai catat cepat yang sama, ditambah aturan sederhana untuk pertanyaan
+     ("besok ada apa?"), centang ("sudah kirim draft"), catatan ("c: …"), dan ide (#ide → Clavis).
+     Riwayat chat hanya disimpan di perangkat ini. */
+  const CHAT_KEY = 'ofa-chat-v1';
+  let obrolan = (() => { try { const a = JSON.parse(localStorage.getItem(CHAT_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } })();
+  function simpanObrolan() {
+    obrolan = obrolan.slice(-150);
+    try { localStorage.setItem(CHAT_KEY, JSON.stringify(obrolan)); } catch (e) { /* penyimpanan penuh */ }
+  }
+  function pesan(dari, isi) { const m = Object.assign({ id: C.uid(), dari, waktu: new Date().toISOString() }, isi); obrolan.push(m); return m; }
+  const balas = (teks, extra) => pesan('ofa', Object.assign({ teks, mood: 'senang' }, extra));
+
+  const SARAN_CHAT = ['Jadwal hari ini', 'Besok ada apa?', 'Minggu ini', 'Yang terlewat', 'Bantuan'];
+  const CONTOH_CHAT = ['besok jam 3 kirim draft artikel #niras', 'sabtu baca 2 jurnal #clavis', 'sudah revisi logo', '#ide fashion santri setelah pandemi'];
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const RENTANG = [
+    ['lewat', /\b(?:terlewat|telat|ketinggalan|lewat tenggat|belum (?:selesai|beres|dikerjakan))\b/],
+    ['mingguDepan', /\b(?:minggu|pekan) depan\b/],
+    ['mingguIni', /\b(?:minggu|pekan) ini\b|\bseminggu\b/],
+    ['lusa', /\b(?:besok lusa|lusa)\b/],
+    ['besok', /\b(?:besok|bsk|esok)\b/],
+    ['hari', /\b(?:hari ini|sekarang|today)\b/],
+    ['dekat', /\b(?:terdekat|berikutnya|selanjutnya|habis ini|setelah ini|next)\b/],
+    ['semua', /\b(?:semua|semuanya|dua minggu|14 hari)\b/]
+  ];
+  const KATA_TANYA = new Set(('apa ada aja saja jadwal jadwalku jadwalnya tugas tugasku agenda agendaku kegiatan cek lihat liat tampilkan tunjukkan ' +
+    'dong sih ya yang ku untuk buat di ofa aku saya punya gimana bagaimana list daftar tolong coba kasih tahu tau nya deh kah mana apakah lagi ' +
+    'proyek project kapan isinya hal').split(' '));
+
+  function cariProyek(low) {
+    const urut = data.projects.slice().sort((a, b) => b.name.length - a.name.length);
+    for (const p of urut) {
+      const nama = p.name.toLowerCase();
+      if (new RegExp(`(?:^|[^\\p{L}])#?${escRe(nama)}(?![\\p{L}])`, 'u').test(low) || new RegExp(`#${escRe(p.id.replace(/-/g, ''))}`).test(low.replace(/-/g, ''))) return { p, nama };
+    }
+    return null;
+  }
+
+  /** Pisahkan pertanyaan dari kalimat jadwal: kalau selain kata waktu, nama proyek, dan kata tanya tidak ada yang tersisa, itu pertanyaan. */
+  function bacaTanya(raw) {
+    let low = ` ${String(raw).toLowerCase().replace(/[?!.,]+/g, ' ').replace(/\s+/g, ' ')} `;
+    let rentang = null;
+    for (const [k, re] of RENTANG) { if (re.test(low)) { if (!rentang) rentang = k; low = low.replace(new RegExp(re.source, 'g'), ' '); } }
+    const pr = cariProyek(low);
+    if (pr) low = low.replace(new RegExp(`#?${escRe(pr.nama)}`, 'gu'), ' ').replace(/#\S+/g, ' ');
+    const sisa = low.split(/\s+/).filter((w) => w && !KATA_TANYA.has(w));
+    const kalimatTanya = /\?\s*$/.test(raw) || /^\s*(?:apa|ada apa|ada jadwal|cek|lihat|liat|tampilkan|tunjukkan|gimana|bagaimana|kapan)\b/i.test(raw);
+    const kapan = /^\s*kapan\b/i.test(raw);
+    return { rentang, proyek: pr && pr.p, sisa, kapan, tanya: !sisa.length || kalimatTanya };
+  }
+
+  function daftarRentang(rentang, proyek) {
+    const t = today(), n = now();
+    const aktif = data.tasks.filter((x) => !x.skipped && (!proyek || x.projectId === proyek.id));
+    const hingga = (a, b) => aktif.filter((x) => x.date >= a && x.date <= b).sort(byDue);
+    const minggu = C.startOfWeek(n);
+    switch (rentang) {
+      case 'lewat': return { judul: 'yang terlewat', l: aktif.filter((x) => !x.done && x.date < t && C.daysBetween(C.parseYMD(x.date), n) <= 60).sort(byDue), late: true };
+      case 'besok': { const s = C.ymd(C.addDays(n, 1)); return { judul: 'besok', l: hingga(s, s) }; }
+      case 'lusa': { const s = C.ymd(C.addDays(n, 2)); return { judul: 'lusa', l: hingga(s, s) }; }
+      case 'mingguIni': return { judul: 'minggu ini', l: hingga(t, C.ymd(C.addDays(minggu, 6))).filter((x) => !x.done || x.date === t), tanggal: true };
+      case 'mingguDepan': return { judul: 'minggu depan', l: hingga(C.ymd(C.addDays(minggu, 7)), C.ymd(C.addDays(minggu, 13))), tanggal: true };
+      case 'dekat': return { judul: 'terdekat', l: aktif.filter((x) => !x.done && x.date >= t).sort(byDue).slice(0, 3), tanggal: true };
+      case 'semua': return { judul: '2 minggu ke depan', l: hingga(t, C.ymd(C.addDays(n, 13))).filter((x) => !x.done), tanggal: true };
+      default: return { judul: 'hari ini', l: hingga(t, t) };
+    }
+  }
+
+  function jawabTanya(q) {
+    if (q.kapan && q.sisa.length) {
+      const kata = q.sisa.filter((w) => w.length > 2);
+      const cocok = data.tasks.filter((x) => !x.skipped && !x.done && x.date >= today() && kata.some((w) => x.title.toLowerCase().includes(w)))
+        .map((x) => ({ x, skor: kata.filter((w) => x.title.toLowerCase().includes(w)).length })).sort((a, b) => b.skor - a.skor || byDue(a.x, b.x)).slice(0, 3).map((o) => o.x);
+      if (!cocok.length) return balas(`Aku belum menemukan jadwal "${q.sisa.join(' ')}" yang akan datang. Mau aku catat? Tulis lengkap dengan tanggalnya, ya.`, { mood: 'tidur' });
+      const a = cocok[0];
+      return balas(`"${a.title}" jatuh pada ${C.fmtDateLong(a.date)}${a.time ? ` jam ${C.fmtTime(a.time)}` : ''}.`, { daftar: cocok.map((x) => x.id), tanggal: true });
+    }
+    const d = daftarRentang(q.rentang, q.proyek);
+    const di = q.proyek ? ` di ${q.proyek.name}` : '';
+    const nama = data.profile.name;
+    if (!d.l.length) {
+      if (d.late) return balas(`Tidak ada jadwal yang terlewat${di}. Keren, ${nama}!`);
+      return balas(`Jadwal ${d.judul}${di} masih kosong. Waktunya santai… atau ceritakan rencanamu, nanti aku catat.`, { mood: 'tidur' });
+    }
+    if (d.late) {
+      const neg = data.profile.moodsOn !== false;
+      return balas(`Ada ${d.l.length} jadwal${di} yang terlewat. Pilih: kerjakan hari ini, pindah ke besok, atau lewati.`, { mood: neg ? (d.l.length >= 3 ? 'marah' : 'ngambek') : 'panik', daftar: d.l.map((x) => x.id), late: true });
+    }
+    const beres = d.l.filter((x) => x.done).length;
+    return balas(`Jadwal ${d.judul}${di} ada ${d.l.length}${beres ? `, ${beres} sudah beres` : ''}:`, { daftar: d.l.map((x) => x.id), tanggal: !!d.tanggal });
+  }
+
+  function jawabCentang(kalimat) {
+    const kata = kalimat.toLowerCase().split(/\s+/).filter((w) => w.length > 2 && !KATA_TANYA.has(w));
+    if (!kata.length) return balas('Jadwal yang mana yang sudah selesai? Contoh: "sudah kirim draft".');
+    const batas = C.ymd(C.addDays(now(), 7));
+    const calon = data.tasks.filter((x) => !x.done && !x.skipped && x.date <= batas)
+      .map((x) => ({ x, skor: kata.filter((w) => x.title.toLowerCase().includes(w)).length })).filter((o) => o.skor)
+      .sort((a, b) => b.skor - a.skor || byDue(a.x, b.x));
+    if (!calon.length) return balas(`Aku belum menemukan jadwal "${kalimat}" yang belum selesai.`, { mood: 'tidur' });
+    const top = calon.filter((o) => o.skor === calon[0].skor);
+    if (top.length > 1) return balas('Ada beberapa yang mirip. Yang mana? Ketuk lingkarannya untuk mencentang.', { daftar: top.slice(0, 4).map((o) => o.x.id), tanggal: true });
+    const t = top[0].x;
+    t.done = true; t.doneAt = new Date().toISOString();
+    save();
+    const todays = data.tasks.filter((x) => x.date === today() && !x.skipped);
+    const semua = t.date === today() && todays.every((x) => x.done);
+    return balas(semua ? `Yeay! "${t.title}" beres, dan semua jadwal hari ini selesai. Ofa bangga sama kamu, ${data.profile.name}!` : `Mantap! "${t.title}" sudah aku centang.`, { daftar: [t.id], tanggal: true, urungkan: t.id });
+  }
+
+  function jawabJadwal(teks) {
+    const r = C.parseQuick(teks, now(), data.projects);
+    if (!r.title) return balas('Apa yang mau dicatat? Contoh: "besok jam 3 kirim draft #niras".');
+    const tebak = !r.projectId;
+    const pid = r.projectId || (data.lastProject && proj(data.lastProject) ? data.lastProject : data.projects[0].id);
+    const t = addTask({ title: r.title, date: r.date || today(), time: r.time || null, projectId: pid, note: '', link: '' });
+    save();
+    const p = proj(pid);
+    let teksBalas = `Siap! Aku catat di ${p.name}.`;
+    if (!r.date && !r.time) teksBalas += ' Belum ada tanggalnya, jadi aku taruh di hari ini.';
+    if (tebak) teksBalas += ` Proyeknya aku tebak, tambahkan #${p.name.toLowerCase().replace(/\s+/g, '')} kalau mau memilih sendiri.`;
+    return balas(teksBalas, { jadwal: t.id });
+  }
+
+  function jawab(raw) {
+    const teks = String(raw).trim();
+    const low = teks.toLowerCase();
+    const nama = data.profile.name;
+    const kata = low.split(/\s+/).length;
+    if (/^(?:bantuan|help|bisa apa|kamu bisa apa|caranya|cara pakai)\b/.test(low)) {
+      return balas(`Ini yang bisa aku lakukan, ${nama}:\n• Catat jadwal: "jumat jam 7 malam posting reels #nirastudio"\n• Tanya jadwal: "besok ada apa?", "jadwal clavis minggu ini"\n• Cari tanggal: "kapan lomba cerpen?"\n• Centang: "sudah revisi logo"\n• Catatan: "c: beli kertas A3"\n• Ide ke Clavis: "#ide judul penelitian…"`, { tombol: CONTOH_CHAT });
+    }
+    if (kata <= 4 && /^(?:hai|halo|hallo|hi|hei|hey|pagi|siang|sore|malam|assalamu'?alaikum|selamat (?:pagi|siang|sore|malam))\b/.test(low)) {
+      const m = C.computeMood(data, now());
+      return balas(m.text, { mood: m.mood });
+    }
+    if (kata <= 4 && /^(?:makasih|terima ?kasih|thanks|thx|oke|ok|okey|sip|siap|mantap|good)\b/.test(low)) return balas(`Sama-sama, ${nama}! Aku di sini kalau ada jadwal lagi.`);
+    if (IDE_RE.test(teks)) {
+      const isi = teks.replace(IDE_RE, ' ').replace(/\s+/g, ' ').trim();
+      if (!isi) return balas('Idenya apa? Tulis setelah #ide, ya.');
+      kirimIde(isi);
+      return balas('Idenya sudah aku kirim ke kotak ide Clavis. Nanti muncul saat kamu buka Clavis.', { tombol: [] , bukaClavis: true });
+    }
+    const mc = /^\s*(?:c|catat(?:an)?|note)\s*:\s*([\s\S]+)/i.exec(teks);
+    if (mc) {
+      data.notes = data.notes || [];
+      data.notes.push({ id: C.uid(), text: mc[1].trim().slice(0, 5000), color: 'kuning', pinned: false, createdAt: new Date().toISOString() });
+      save();
+      return balas('Catatannya sudah aku simpan di tab Catatan.');
+    }
+    const md = /^\s*(?:sudah|udah|udh|sdh|selesai|beres|done)\s+(.+)/i.exec(teks);
+    if (md && !/\?\s*$/.test(teks)) return jawabCentang(md[1].replace(/\b(?:ya|dong|nih|kok)\b/gi, ' ').trim());
+    const q = bacaTanya(teks);
+    if (q.tanya) return jawabTanya(q);
+    return jawabJadwal(teks);
+  }
+
+  function kirimChat(teks) {
+    teks = String(teks || '').trim().slice(0, 1000);
+    if (!teks) return;
+    pesan('aku', { teks });
+    try { jawab(teks); } catch (e) { balas('Aduh, aku bingung. Coba tulis dengan cara lain, ya.', { mood: 'sedih' }); }
+    simpanObrolan();
+    ui.chatBawah = true;
+    render();
+  }
+
+  function isiPesanOfa(m) {
+    let isi = `<p class="chat-text">${esc(m.teks)}</p>`;
+    if (m.jadwal) {
+      const t = data.tasks.find((x) => x.id === m.jadwal);
+      isi += t ? `<ul class="list">${taskRow(t, { showDate: true })}</ul>
+        <div class="chat-act"><button type="button" class="mini" data-act="edit" data-id="${t.id}">${icon('edit', 16)} Ubah</button><button type="button" class="mini" data-act="chat-batal" data-id="${t.id}" data-msg="${m.id}">Batalkan</button></div>`
+        : '<p class="small muted">Jadwal ini sudah dihapus.</p>';
+    }
+    if (m.daftar) {
+      const l = m.daftar.map((id) => data.tasks.find((x) => x.id === id)).filter(Boolean);
+      if (l.length) isi += `<ul class="list">${l.map((t) => taskRow(t, { showDate: m.tanggal, late: m.late && !t.done && !t.skipped && t.date < today() })).join('')}</ul>`;
+    }
+    if (m.urungkan) {
+      const t = data.tasks.find((x) => x.id === m.urungkan);
+      if (t && t.done) isi += `<div class="chat-act"><button type="button" class="mini" data-act="toggle" data-id="${t.id}">Urungkan</button></div>`;
+    }
+    if (m.bukaClavis) isi += `<div class="chat-act"><a class="mini link-mini" href="${CLAVIS_URL}#ide" target="_blank" rel="noopener">Buka Clavis</a></div>`;
+    if (m.tombol && m.tombol.length) isi += `<div class="chat-act">${m.tombol.map((x) => `<button type="button" class="mini" data-act="chat-fill" data-id="${esc(x)}" aria-label="Pakai contoh: ${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
+    return isi;
+  }
+
+  function viewChat() {
+    const daftar = obrolan.length ? obrolan : [{ id: 'sapa', dari: 'ofa', mood: 'senang', waktu: new Date().toISOString(),
+      teks: `Halo, ${data.profile.name}! Ceritakan jadwalmu ke aku, nanti aku catat ke proyek yang pas: Niras, Lei Stuff, Nira Studio, atau Clavis. Kamu juga bisa tanya jadwal, mencentang tugas, atau mengirim ide ke Clavis. Coba salah satu:`, tombol: CONTOH_CHAT }];
+    const jam = (w) => { const d = new Date(w); return isNaN(d) ? '' : C.fmtTime(C.hm(d)); };
+    return `
+      <header class="top"><div><p class="eyebrow">Catat dan tanya jadwal sambil ngobrol</p><h1>Chat Ofa</h1></div>
+        ${obrolan.length ? '<button type="button" class="mini" data-act="chat-clear">Bersihkan</button>' : ''}</header>
+      <ol class="chat" aria-label="Percakapan dengan Ofa">
+        ${daftar.map((m) => m.dari === 'aku'
+          ? `<li class="msg aku"><p class="chat-text">${esc(m.teks)}</p><span class="msg-time">${jam(m.waktu)}</span></li>`
+          : `<li class="msg ofa"><span class="msg-ofa">${C.ofaSVG(m.mood || 'senang', 40)}</span><div class="msg-body">${isiPesanOfa(m)}<span class="msg-time">${jam(m.waktu)}</span></div></li>`).join('')}
+      </ol>
+      <div class="chat-dock">
+        <div class="chips scroll" role="group" aria-label="Pertanyaan cepat">${SARAN_CHAT.map((x) => `<button type="button" class="chipbtn" data-act="chat-say" data-id="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+        <form id="chat-form" class="quick" autocomplete="off">
+          <label for="chat-in" class="sr">Pesan untuk Ofa</label>
+          <input id="chat-in" name="q" placeholder="Tulis ke Ofa…" enterkeyhint="send" maxlength="1000">
+          <button class="send" aria-label="Kirim">${icon('send')}</button>
+        </form>
+      </div>`;
+  }
+
   /* ---------- Render ---------- */
-  const TABS = [['hari', 'Hari ini', 'sun'], ['kalender', 'Kalender', 'cal'], ['catatan', 'Catatan', 'note'], ['rapor', 'Rapor', 'star'], ['proyek', 'Proyek', 'folder']];
+  const TABS = [['hari', 'Hari ini', 'sun'], ['kalender', 'Kalender', 'cal'], ['chat', 'Chat', 'chat'], ['catatan', 'Catatan', 'note'], ['rapor', 'Rapor', 'star'], ['proyek', 'Proyek', 'folder']];
   function renderBase() {
-    const views = { hari: viewToday, kalender: viewCalendar, catatan: viewNotes, rapor: viewReport, proyek: viewProjects };
+    const views = { hari: viewToday, kalender: viewCalendar, chat: viewChat, catatan: viewNotes, rapor: viewReport, proyek: viewProjects };
     $('#app').classList.toggle('wide', ui.tab === 'catatan');
     const scroll = window.scrollY;
     // jaga isi kolom catat cepat & pengaturan yang sedang diketik
@@ -552,12 +769,13 @@
     const keepId = active && active.id && /INPUT|TEXTAREA/.test(active.tagName) && $('#app').contains(active) ? active.id : null;
     const keepVal = keepId ? active.value : null;
     $('#app').innerHTML = `
-      <main class="main" id="main">${views[ui.tab]()}</main>
+      <main class="main${ui.tab === 'chat' ? ' chat-main' : ''}" id="main">${views[ui.tab]()}</main>
       ${ui.tab === 'hari' || ui.tab === 'kalender' ? `<button type="button" class="fab" data-act="new" aria-label="Tambah jadwal">${icon('plus', 28, 2.5)}</button>` : ''}
       ${ui.tab === 'catatan' ? `<button type="button" class="fab" data-act="new-note" aria-label="Catatan baru">${icon('plus', 28, 2.5)}</button>` : ''}
       <nav class="nav" aria-label="Navigasi utama">${TABS.map(([id, label, ic]) => `<button type="button" data-act="tab" data-id="${id}" ${ui.tab === id ? 'aria-current="page"' : ''}><span>${icon(ic)}</span>${label}</button>`).join('')}</nav>`;
-    if (keepId) { const el = document.getElementById(keepId); if (el) { el.value = keepVal; el.focus(); } }
-    window.scrollTo(0, scroll);
+    if (keepId) { const el = document.getElementById(keepId); if (el) { el.value = keepVal; el.focus({ preventScroll: true }); } }
+    if (ui.tab === 'chat' && ui.chatBawah) { ui.chatBawah = false; window.scrollTo(0, document.documentElement.scrollHeight); }
+    else window.scrollTo(0, scroll);
   }
   function render() {
     renderBase();
@@ -892,18 +1110,21 @@
   function proyekClavis(buat) {
     let p = data.projects.find((x) => x.id === 'clavis');
     if (!p && buat) {
-      p = { id: 'clavis', name: 'Clavis', color: 'mint', reminders: ['1440', 'pagi'], mutedUntil: null, kind: 'umum', keywords: ['riset', 'penelitian', 'jurnal ilmiah'] };
+      p = C.proyekClavisBawaan();
       data.projects.push(p);
     }
     return p;
   }
 
+  function kirimIde(isi) {
+    data.notes = data.notes || [];
+    data.notes.push({ id: C.uid(), text: isi, color: 'mint', pinned: false, createdAt: new Date().toISOString(), keClavis: true });
+    save(); tulisKeClavis();
+  }
   function tangkapIde(teks) {
     const isi = String(teks || '').replace(/\s+/g, ' ').trim();
     if (!isi) { toast('Tulis dulu idenya, ya.'); return; }
-    data.notes = data.notes || [];
-    data.notes.push({ id: C.uid(), text: isi, color: 'mint', pinned: false, createdAt: new Date().toISOString(), keClavis: true });
-    save(); render(); tulisKeClavis();
+    kirimIde(isi); render();
     toast('Ide dikirim ke kotak ide Clavis.', 'Buka Clavis', () => window.open(`${CLAVIS_URL}#ide`, '_blank'));
   }
 
@@ -1007,7 +1228,23 @@
     const act = el.dataset.act, id = el.dataset.id;
     if (act === 'close-bg') { if (e.target === el) closeSheet(); return; }
     switch (act) {
-      case 'tab': ui.tab = id; ui.week = 0; render(); window.scrollTo(0, 0); break;
+      case 'tab': ui.tab = id; ui.week = 0; ui.chatBawah = id === 'chat'; render(); if (id !== 'chat') window.scrollTo(0, 0); break;
+      case 'chat-say': kirimChat(id); break;
+      case 'chat-fill': { const el = $('#chat-in'); if (el) { el.value = id; el.focus(); el.setSelectionRange(id.length, id.length); } break; }
+      case 'chat-clear': {
+        const lama = obrolan;
+        obrolan = []; simpanObrolan(); render();
+        toast('Chat dibersihkan.', 'Urungkan', () => { obrolan = lama; simpanObrolan(); ui.chatBawah = true; render(); });
+        break;
+      }
+      case 'chat-batal': {
+        const t = data.tasks.find((x) => x.id === id);
+        if (!t) break;
+        data.tasks = data.tasks.filter((x) => x !== t); save();
+        balas(`Oke, "${t.title}" aku batalkan.`); simpanObrolan();
+        ui.chatBawah = true; render();
+        break;
+      }
       case 'filter': ui.filter = id; render(); break;
       case 'toggle': toggleTask(id); break;
       case 'edit': openSheet({ type: 'task', id }); break;
@@ -1087,7 +1324,7 @@
       case 'new-project': openSheet({ type: 'project' }); break;
       case 'export': exportData(); break;
       case 'reset': openSheet({ type: 'reset' }); break;
-      case 'reset-yes': try { localStorage.removeItem(KEY); } catch (er) { /* abaikan */ } data = C.defaultData(); data.welcomed = true; save(); closeSheet(); toast('Semua data dihapus.'); break;
+      case 'reset-yes': try { localStorage.removeItem(KEY); } catch (er) { /* abaikan */ } data = migrate(C.defaultData()); data.welcomed = true; save(); closeSheet(); toast('Semua data dihapus.'); break;
       case 'delete-task': {
         const i = data.tasks.findIndex((x) => x.id === id);
         const [t] = data.tasks.splice(i, 1);
@@ -1144,6 +1381,7 @@
     e.preventDefault();
     const f = e.target;
     if (f.id === 'quick') { const v = f.q.value; f.q.value = ''; quickAdd(v); }
+    if (f.id === 'chat-form') { const v = f.q.value; f.q.value = ''; kirimChat(v); const el = $('#chat-in'); if (el) el.focus({ preventScroll: true }); }
     if (f.id === 'task-form') saveTaskForm(f);
     if (f.id === 'project-form') saveProjectForm(f);
     if (f.id === 'note-quick') {
