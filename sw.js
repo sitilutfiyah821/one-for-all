@@ -1,8 +1,8 @@
 /* One for All — service worker: bisa dibuka tanpa internet, dan membuka app saat notifikasi diketuk.
    Naikkan angka VERSI setiap kali file app diubah supaya HP mengambil versi terbaru. */
-const VERSI = 'ofa-v11';
+const VERSI = 'ofa-v12';
 const SHELL = [
-  './', 'index.html', 'core.js', 'app.js', 'dilan.js?v=5', 'manifest.webmanifest',
+  './', 'index.html', 'core.js', 'app.js', 'dilan.js?v=6', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png', 'icons/badge-96.png'
 ];
 
