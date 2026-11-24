@@ -432,7 +432,7 @@
         <p class="muted center">Aku akan menjaga jadwal Niras, Lei Stuff, dan Nira Studio, lalu mengingatkanmu tepat waktu.</p></div>
       <div class="card"><p class="card-title">Coba ketik di kolom catat cepat:</p>
         <ul class="tips"><li>besok abis magrib kirim revisi logo ke klien</li><li>jumat posting reels jam 7 malam</li><li>batas kirim lomba puisi 5 desember</li></ul>
-        <p class="small muted">Ofa otomatis menebak tanggal, jam, dan proyeknya. Tambahkan #niras, #leistuff, atau #nirastudio kalau ingin memilih proyek sendiri.</p></div>
+        <p class="small muted">Ofa otomatis menebak tanggal, jam, dan proyeknya. Tambahkan #niras, #leistuff, atau #nirastudio kalau ingin memilih proyek sendiri. Ketik #ide untuk mengirim ide ke kotak ide Clavis.</p></div>
       <div class="card"><p class="card-title">Pasang di layar utama</p><p class="small muted">Android (Chrome): menu ⋮ lalu "Instal aplikasi". iPhone (Safari): tombol Bagikan lalu "Tambahkan ke Layar Utama".</p></div>
       ${'Notification' in window && Notification.permission === 'default' ? '<button type="button" class="btn ghost" data-act="notif">Nyalakan notifikasi</button>' : ''}
       <button type="button" class="btn" data-act="close">Ayo mulai!</button>`;
@@ -468,7 +468,7 @@
     return `<li class="note" style="background:${c.tint};color:${c.ink}">
       <button type="button" class="note-main" data-act="edit-note" data-id="${n.id}" aria-label="Buka catatan: ${esc(first.slice(0, 60))}">
         <span class="note-text"><b>${esc(first)}</b>${rest.length ? `\n${esc(rest.join('\n'))}` : ''}</span>
-        <span class="note-foot">${n.pinned ? `<span class="note-pin" title="Disematkan">${icon('pin', 14)}</span>` : ''}<span>${isNaN(d) ? '' : esc(C.fmtDateShort(C.ymd(d)))}</span></span>
+        <span class="note-foot">${n.keClavis ? `<span title="Ide untuk Clavis">→ Clavis${n.keClavisDiambil ? ' ✓' : ''}</span>` : ''}${n.pinned ? `<span class="note-pin" title="Disematkan">${icon('pin', 14)}</span>` : ''}<span>${isNaN(d) ? '' : esc(C.fmtDateShort(C.ymd(d)))}</span></span>
       </button>
     </li>`;
   }
@@ -512,6 +512,7 @@
         <button type="submit" class="btn">Simpan</button>
         <div class="btn-row">
           <button type="button" class="btn ghost" data-act="note-to-task">${icon('cal', 20)} Jadikan jadwal</button>
+          ${n && n.keClavis ? `<p class="small muted" style="margin:0">${n.keClavisDiambil ? 'Sudah masuk kotak ide Clavis.' : 'Menunggu diambil Clavis.'}</p>` : `<button type="button" class="btn ghost" data-act="note-to-clavis">${icon('note', 20)} Kirim ke kotak ide Clavis</button>`}
           ${n ? `<button type="button" class="btn danger" data-act="delete-note" data-id="${n.id}">Hapus</button>` : ''}
         </div>
       </form>`;
@@ -595,6 +596,7 @@
   }
 
   function quickAdd(text) {
+    if (IDE_RE.test(text)) { tangkapIde(String(text).replace(IDE_RE, ' ')); return; }
     const r = C.parseQuick(text, now(), data.projects);
     if (!r.title) { toast('Tulis dulu apa yang mau dicatat, ya.'); return; }
     const pid = r.projectId || (ui.filter !== 'all' ? ui.filter : (data.lastProject && proj(data.lastProject) ? data.lastProject : data.projects[0].id));
@@ -877,20 +879,104 @@
     });
     return ubah;
   }
+  /* ---------- Jembatan dengan Clavis (meja riset) ----------
+     Clavis menulis 'clavis-ke-ofa-v1': tenggat proyek, langkah riset dari kartu ide, sesi menulis,
+     dan pengingat ide yang mengendap → jadwal di proyek "Clavis".
+     OfA menulis 'ofa-ke-clavis-v1': ide yang ditangkap (#ide atau catatan "Kirim ke Clavis")
+     dan centang jadwal Clavis, supaya langkah/tenggat di Clavis ikut tercentang. */
+  const CLAVIS_KEY = 'clavis-ke-ofa-v1';
+  const KE_CLAVIS = 'ofa-ke-clavis-v1';
+  const CLAVIS_URL = 'https://sitilutfiyah821.github.io/clavis/';
+  const IDE_RE = /(^|\s)#ide\b/i;
+
+  function proyekClavis(buat) {
+    let p = data.projects.find((x) => x.id === 'clavis');
+    if (!p && buat) {
+      p = { id: 'clavis', name: 'Clavis', color: 'mint', reminders: ['1440', 'pagi'], mutedUntil: null, kind: 'umum', keywords: ['riset', 'penelitian', 'jurnal ilmiah'] };
+      data.projects.push(p);
+    }
+    return p;
+  }
+
+  function tangkapIde(teks) {
+    const isi = String(teks || '').replace(/\s+/g, ' ').trim();
+    if (!isi) { toast('Tulis dulu idenya, ya.'); return; }
+    data.notes = data.notes || [];
+    data.notes.push({ id: C.uid(), text: isi, color: 'mint', pinned: false, createdAt: new Date().toISOString(), keClavis: true });
+    save(); render(); tulisKeClavis();
+    toast('Ide dikirim ke kotak ide Clavis.', 'Buka Clavis', () => window.open(`${CLAVIS_URL}#ide`, '_blank'));
+  }
+
+  function sinkronClavis() {
+    const j = bacaJembatan(CLAVIS_KEY);
+    if (!j || !Array.isArray(j.jadwal)) return false;
+    let ubah = false;
+    const ambil = new Set(j.diambil || []);
+    (data.notes || []).forEach((n) => { if (n.keClavis && !n.keClavisDiambil && ambil.has(n.id)) { n.keClavisDiambil = true; ubah = true; } });
+    let proyek = proyekClavis(false);
+    if (!proyek && j.jadwal.length) { proyek = proyekClavis(true); ubah = true; }
+    const sisa = new Map(data.tasks.filter((t) => t.dariClavis).map((t) => [t.dariClavis, t]));
+    j.jadwal.forEach((n) => {
+      let t = sisa.get(n.id);
+      if (t) sisa.delete(n.id);
+      const link = n.link || CLAVIS_URL;
+      if (!t) {
+        if (n.selesai) return;
+        addTask({ title: n.judul, date: n.tanggal, time: n.jam || null, projectId: proyek.id, note: n.catatan || '', link, dariClavis: n.id, clavisVersi: n.versi, asal: PERANGKAT });
+        ubah = true; return;
+      }
+      if (t.clavisVersi !== n.versi) {
+        if (!t.done && t.date && n.tanggal > t.date) t.postponed = (t.postponed || 0) + 1;
+        Object.assign(t, { title: n.judul, date: n.tanggal, time: n.jam || null, note: n.catatan || '', link, projectId: t.projectId && proj(t.projectId) ? t.projectId : proyek.id, done: !!n.selesai, skipped: false, clavisVersi: n.versi });
+        if (data.clavisCentang) data.clavisCentang[n.id] = { done: !!n.selesai, waktu: new Date().toISOString() };
+        ubah = true;
+      }
+    });
+    // jadwal yang dihapus di Clavis: hapus yang belum selesai (pengingat "ide mengendap" yang lewat juga dibersihkan)
+    const pergi = new Set(j.dihapus || []);
+    sisa.forEach((t, id) => {
+      if (t.done) return;
+      if (pergi.has(id) || (t.asal === PERANGKAT && j.jadwal.length) || id.startsWith('cl-ie-')) { data.tasks = data.tasks.filter((x) => x !== t); ubah = true; }
+    });
+    return ubah;
+  }
+
+  let terakhirKeClavis = '';
+  function tulisKeClavis() {
+    try {
+      data.clavisCentang = data.clavisCentang || {};
+      data.tasks.forEach((t) => {
+        if (!t.dariClavis) return;
+        const r = data.clavisCentang[t.dariClavis];
+        if (!r || r.done !== !!t.done) data.clavisCentang[t.dariClavis] = { done: !!t.done, waktu: t.doneAt || new Date().toISOString() };
+      });
+      const perangkat = /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'ponsel' : 'laptop';
+      const ide = (data.notes || []).filter((n) => n.keClavis && !n.keClavisDiambil)
+        .map((n) => ({ id: n.id, teks: n.text, dibuat: n.createdAt, perangkat }));
+      const isi = JSON.stringify({ v: 1, ide, centang: data.clavisCentang });
+      if (isi === terakhirKeClavis) return;
+      terakhirKeClavis = isi;
+      localStorage.setItem(KE_CLAVIS, JSON.stringify({ ...JSON.parse(isi), waktu: new Date().toISOString() }));
+    } catch (e) { /* penyimpanan penuh atau tidak tersedia */ }
+  }
+  window.addEventListener('ofa:saved', tulisKeClavis);
+
   function sinkronJembatan() {
-    let a = false, b = false;
+    let a = false, b = false, c = false;
     try { a = sinkronNiras(); } catch (e) { /* abaikan */ }
     try { b = sinkronLei(); } catch (e) { /* abaikan */ }
-    return a || b;
+    try { c = sinkronClavis(); } catch (e) { /* abaikan */ }
+    return a || b || c;
   }
   window.addEventListener('storage', (e) => {
-    if ((e.key === NIRAS_KEY || e.key === LEI_KEY) && sinkronJembatan()) { save(); render(); }
+    if ((e.key === NIRAS_KEY || e.key === LEI_KEY || e.key === CLAVIS_KEY) && sinkronJembatan()) { save(); render(); }
   });
 
   /* ---------- Detak: pengingat, ringkasan, Ofa ---------- */
   let lastMinute = '';
   function tick() {
     if (sinkronJembatan()) { save(); render(); }
+    tulisKeClavis();
     const n = now();
     const due = C.dueReminders(data, n);
     if (due.length) {
@@ -941,6 +1027,15 @@
         el.setAttribute('aria-pressed', on);
         el.classList.toggle('dark', on);
         el.innerHTML = `${icon('pin', 16)} ${on ? 'Disematkan' : 'Sematkan'}`;
+        break;
+      }
+      case 'note-to-clavis': {
+        saveNoteForm(true);
+        const n = ui.sheet && ui.sheet.id ? (data.notes || []).find((x) => x.id === ui.sheet.id) : null;
+        if (!n || !String(n.text || '').trim()) { toast('Tulis dulu isi catatannya.'); break; }
+        n.keClavis = true; n.color = 'mint';
+        save(); closeSheet(); tulisKeClavis();
+        toast('Dikirim ke kotak ide Clavis.');
         break;
       }
       case 'note-to-task': {
@@ -1055,6 +1150,7 @@
       const v = f.q.value.trim();
       if (!v) { openSheet({ type: 'note' }); return; }
       f.q.value = '';
+      if (IDE_RE.test(v)) { tangkapIde(v.replace(IDE_RE, ' ')); return; }
       data.notes = data.notes || [];
       data.notes.push({ id: C.uid(), text: v, color: 'kuning', pinned: false, createdAt: new Date().toISOString() });
       save(); render(); toast('Catatan disimpan.');

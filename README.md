@@ -37,6 +37,12 @@ Kata yang dikenali: hari ini, besok, lusa, nama hari (+ "depan"), tanggal (21/11
 
 Di perangkat yang sama, OfA membaca tenggat pekerjaan dari Niras dan jadwal lomba dari Lei Stuff lalu menjadikannya jadwal (ikut tersinkron ke perangkat lain lewat login Google). Catatan cepat proyek Niras dibaca Niras: `pesanan baru logo Kopi Senja 1,5jt deadline 25/11` jadi pekerjaan baru, `besok revisi logo Tanaka` jadi tahap Revisi di pekerjaan Tanaka, `Tanaka bayar 500rb` jadi pembayaran. Kata kunci proyek Niras otomatis ditambah nama klien dan jenis pekerjaan dari Niras.
 
+## Tersambung dengan Clavis (meja riset)
+
+Di perangkat yang sama, OfA membaca tenggat proyek, langkah riset dari kartu ide, sesi menulis, dan pengingat ide yang mengendap dari [Clavis](https://sitilutfiyah821.github.io/clavis/), lalu menjadikannya jadwal di proyek **Clavis**. Centang di OfA ikut mencentang langkah dan tenggat di Clavis.
+
+Untuk mengirim ide ke kotak ide Clavis: ketik `#ide` di catat cepat atau di kolom catatan (mis. `#ide kenapa horor kita jadi religi?`), atau buka sebuah catatan lalu tekan **Kirim ke kotak ide Clavis**. Ide ikut tersinkron ke laptop lewat login Google, lalu diambil Clavis saat OfA dan Clavis terbuka di browser yang sama.
+
 ## Sinkron HP & laptop
 
 Buka **Proyek → Sinkron HP & laptop → Masuk dengan Google** di HP dan di laptop, pakai akun Google yang sama. Setelah itu jadwal, centang, dan pengaturan otomatis sama di kedua perangkat. Kalau sedang offline, perubahan disimpan dulu dan dikirim begitu online lagi.
