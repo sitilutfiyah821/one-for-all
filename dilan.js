@@ -5,7 +5,8 @@
 
    Modul ini membaca data aplikasi di penyimpanan browser (localStorage) dan tidak mengubahnya sendiri. Satu-satunya
    penulisan: ketikan dari Dilan (Ctrl+Alt+Q) diteruskan ke jadwal atau Catatan One for All lewat window.OfaDilan (app.js),
-   atau dititipkan untuk Bank ide Lei Stuff ("i: …", kunci 'dilan-ke-leistuff-v1').
+   atau dititipkan untuk Bank ide Lei Stuff ("i: …", kunci 'dilan-ke-leistuff-v1'), atau dikirim ke kotak ide
+   Clavis ("#ide …" / "r: …", lewat catatan berlabel Clavis di One for All).
    Di HP atau bila Dilan tidak berjalan, modul ini diam: tidak ada pesan, tidak ada notifikasi. */
 (function () {
   'use strict';
@@ -134,6 +135,8 @@
     box.ide = box.ide.slice(-200);
     localStorage.setItem(KOTAK_IDE, JSON.stringify(box));
   }
+  /** "#ide …" atau "r: …" → kotak ide Clavis, lewat catatan berlabel Clavis di One for All. */
+  const AWALAN_RISET = /^\s*(?:r\s*:|#ide\b)\s*/i;
   function tangkapOfa(m) {
     const balas = (tipe, teks) => ({ tipe, nomor: m.nomor, teks });
     const mentah = String(m.teks || '');
@@ -146,6 +149,13 @@
     }
     const O = window.OfaDilan;
     if (!O) return balas(m.kirim ? 'gagal' : 'pratinjau', 'Muat ulang tab One for All dulu');
+    if (AWALAN_RISET.test(mentah)) {
+      const ide = mentah.replace(AWALAN_RISET, '').trim();
+      if (!O.ide) return balas(m.kirim ? 'gagal' : 'pratinjau', 'Muat ulang tab One for All dulu');
+      if (!m.kirim) return balas('pratinjau', ide ? 'Ide ke Clavis: ' + potong(ide, 70) : 'Tulis idenya');
+      const hr = O.ide(ide);
+      return hr.ok ? balas('diterima', hr.teks) : balas('gagal', hr.teks);
+    }
     const isiCatatan = keCatatan(m);
     if (isiCatatan !== null) {
       if (!O.catatan) return balas(m.kirim ? 'gagal' : 'pratinjau', 'Muat ulang tab One for All dulu');
@@ -163,7 +173,8 @@
     niras: { nama: 'Niras', ikon: { huruf: 'N', warna: '#0F5F4E' }, ambil: aktivitasNiras },
     ofa: {
       nama: 'One for All', ikon: { huruf: 'O', warna: '#B5733F' }, ambil: aktivitasOfa,
-      // Ketikan di Dilan (Ctrl+Alt+Q) jadi jadwal OfA; "c: …" jadi catatan; "i: …" jadi ide di Lei Stuff. Tanpa awalan bila OfA satu-satunya penerima; "/o" bila ada beberapa.
+      // Ketikan di Dilan (Ctrl+Alt+Q) jadi jadwal OfA; "c: …" catatan; "i: …" ide Lei Stuff; "#ide …"/"r: …" ide Clavis.
+      // Tanpa awalan bila OfA satu-satunya penerima tangkapan; "/o" bila nanti ada beberapa.
       daftar: { langganan: ['tangkap'], awalan_tangkap: '/o' },
       tangkap: tangkapOfa
     }
@@ -176,7 +187,7 @@
      aturan ini, dua tab yang sama-sama terbuka saling merebut tiap 20 detik dan ketikan bisa jatuh ke tab berkode lama.
      Tab yang tersambung mencatat dirinya (dengan versi modul) di penyimpanan browser; tab lain menunggu, kecuali
      catatannya kedaluwarsa (tab itu sudah ditutup) atau versi modulnya lebih lama. */
-  const VERSI_MODUL = 5;
+  const VERSI_MODUL = 6;
   const KUNCI_PEMIMPIN = 'dilan-pemimpin-' + APLIKASI;
   const ID_TAB = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const HIDUP_MS = 150000;   // tab di latar bisa diperlambat browser sampai sekali semenit
